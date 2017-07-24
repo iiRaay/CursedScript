@@ -1,2 +1,4 @@
 # CursedScript
-This project has been stopped. Current status is NOT WORKING
+Development of this project has stopped. 
+Current status of the script is NOT WORKING.
+
