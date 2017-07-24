@@ -1,0 +1,792 @@
+
+program rayIsAGod;
+
+
+{$I SRL-6/SRL.simba}         // To load the SRL include files
+{$I SPS/lib/SPS-RS3.Simba}   // To load the SPS include files
+
+ {
+   ***PROJECT HAS BEEN STOPPED. WORKING AS OF 9/11/2016***
+
+   CURRENTLY DOES:
+   - COLLECT CURSED
+   - USE RIFT
+   - TELE OUT
+   - BANK
+   - RUN TO WISPS
+
+   TO DO
+    - CHECK IF SIPHONING
+    - CHECK FULL INV
+    - CHECK EMPTY INV ON DEPOSITING INTO RIFT
+
+    BANKING PROCEDURE SUCKS ASS FIX IY~~~~~~~~~~~~~~~~~$#^$*(&#
+
+
+    - BANKING/GLORY/FREEDOM <--- WAAAY LATER
+ }
+
+const  //eng
+  riftOption    = ['to ene'];
+  wispText      = ['wisp'];
+  riftText      = ['Conv'];
+  {
+  riftOption    := ['In En'];
+  wispText      := ['Verf'];
+  riftText      := ['Erinn'];
+{ br
+  riftOption    = ['ia Fi'];
+  wispText      = ['Fogo'];
+  riftText      = ['Fiss'];
+ }
+  //In Hours
+  runForMin     = 6;
+  runForMax     = 9;
+
+  //In mins
+  breakMin      = 30;
+  breakMax      = 60;
+
+  //In mins
+  breakForMin   = 2;
+  breakForMax   = 12;
+
+  const MyFilter: TTesseractFilter = [3, 3, [False, 0, TM_Mean]];
+
+var
+  cursedWispTPA:                   TPointArray;
+  cursedWispATPA:                  T2DPointArray;
+  testCodeTP, p:                   TPoint;
+  riftBox, energyBox:              TBox;              //riftBox is the searchbox for the point on MS if found
+  searchBox1:                      TBox;
+  x1, x2, y1, y2, prevXP:          integer;
+  chanceVar, progLoopVar:          integer;
+  memoryDTM:                       integer;
+  runTime, breakTime:              integer;
+  failTimer, waitTimer:            TTimeMarker;
+  runForTimer, breakTimer:         TTimeMarker;
+  wildLodestone:                   TSPSArea;
+  didWeTele:                       boolean;
+
+
+procedure declarePlayers();
+begin
+  setLength(players, 1);
+  with players[0] do
+  begin
+    loginName := 'drygoreisbest1002@yahoo.com';
+    password := 'tuksukchode10';
+    isActive := true;
+    isMember := true;
+    world := 67;
+  end
+  currentPlayer := 0;
+end;
+
+
+procedure scriptTerminator(debugText: string);
+begin
+  writeln(debugText);
+  writeln('script ran for: ', (runForTimer.getTime/3600000), ' hours');
+  SaveScreenshot('C:\Simba\terminatescreen.png');
+  PlaySound('C:\Users\Ray\Desktop\11946956_514842448668054_750900152_n.wav');
+  TerminateScript;
+end;
+
+
+procedure loginProcedure();
+begin
+  if not isLoggedIn() then
+  begin             // If player isn't logged in then
+    players[currentPlayer].login();    // Log them in
+    wait(randomRange(1500,3000));
+    exitTreasure;
+    claimTicket;
+    closePopup;
+  end;
+
+  if ((minimap.getAngleDegrees > 5) and (minimap.getAngleDegrees < 355)) then
+    begin
+      writeLn('Setting Compass');
+      minimap.clickCompass;
+      mainScreen.setAngle(MS_ANGLE_HIGH);
+      wait(randomrange(650, 1250));
+    end;
+end;
+
+function isLoading(): boolean;
+begin
+  if (minimap.findSymbol(p, MM_SYMBOL_BANK, minimap.getBounds)) then
+    result := true
+  else
+    result := false;
+end;
+
+function TSPSArea.walkPath1(path: TPointArray; waitMoving: Boolean = True; shiftInterval: Integer = 500): boolean;
+var
+  p, lastPos, mmPoint: TPoint;
+  t, fails, h, l, i: integer;
+begin
+  result := false;;
+
+  h := high(path);
+  l := low(path);
+
+  t := (getSystemTime() + randomRange(15000, 20000));
+
+  repeat
+    if (not isLoggedIn()) then
+      exit(false);
+
+    p := self.getPlayerPos();
+
+    for i := h downto l do
+      if (SPS_PosToMM(path[i], p, mmPoint)) then
+      begin
+        if (distance(minimap.getCenterPoint(), mmPoint) >= 10) then
+        begin
+          if (spsMultiMouse) then
+            multiClick(mmPoint, 25, 3)
+          else
+            mouse(mmPoint, MOUSE_LEFT);
+
+          if (minimap.isFlagPresent(2500 + random(500))) then
+            minimap.waitFlag(10 + random(25));
+        end;
+
+        t := (getSystemTime() + randomRange(15000, 20000));
+
+        result := (i = h) or (distance(path[i], path[h]) < 10);
+
+        if (result) then
+          break(2)
+        else
+          break();
+
+      end;
+
+    if (p.x = lastPos.x) and (p.y = lastPos.y) then
+      inc(fails);
+
+    lastPos := p;
+
+  until (getSystemTime() > t) or (fails > 5);
+
+  if waitMoving then
+    if (minimap.isFlagPresent() or minimap.isPlayerMoving()) then
+      minimap.waitPlayerMoving(shiftInterval);
+
+  print(self.getName()+'.walkPath(): result = '+boolToStr(result));
+end;
+
+procedure walkToEdgeBank();
+var
+  p, q: TPoint;
+begin
+  if minimap.findSymbol(p, MM_SYMBOL_BANK, minimap.getBounds()) then
+  begin
+    //smartImage.drawCircle(p, 5, true, CLRED);
+    writeLn('Found bank symbol');
+    moveMouse(p);
+    fastClick(mouse_Left);
+    fastClick(mouse_Left);
+    writeLn('Walking to the bank');
+    wait(4000);
+    writeln('Walked to the bank');
+    q := minimap.pointToMainscreen(p);
+    wait(399);
+  end;
+end;
+
+procedure openBank();
+begin
+  failTimer.start;
+  repeat
+    bankScreen.open(BANK_NPC_BLUE);
+    wait(gaussRangeInt(600,900));
+  until ((bankScreen.isOpen) or (failTimer.getTime > 10000));
+
+  if (failTimer.getTime > 10000) then
+    walkToEdgeBank;
+
+  repeat
+    bankScreen.open(BANK_NPC_BLUE);
+    wait(gaussRangeInt(600,900));
+  until ((bankScreen.isOpen) or (failTimer.getTime > 30000));
+
+  if (failTimer.getTime > 30000) then
+    scriptTerminator('Failed to find bank');
+
+  if bankScreen.isOpen() then
+  begin
+    writeln('Bank is opened');
+    //bankScreen.clickButton(BANK_BUTTON_PRESET_1);
+    typesend('2');
+    writeln('Bank preset 1 loaded');
+  end;
+end;
+
+procedure wildyLodestoneTele();
+var
+  x, y: integer;
+begin
+  repeat
+    lodestoneScreen.teleportTo(LOCATION_WILDERNESS);
+  until (conversationBox.isOpen);
+
+  if (conversationBox.isOpen(2000)) then
+  begin
+    writeln('Teleporting to wildy lodestone...');
+    conversationBox.continue(true, true);
+    wait(gaussRangeInt(600,1200));
+    conversationBox.selectOption(1, true);
+    writeln('Teleported to lodestone ');
+    wait(gaussrangeint(20000, 20001));
+  end;
+end;
+
+procedure toRiftFromLodestone();
+//var
+  //p: TPoint;
+begin
+  wildLodestone.blindWalk([298, 47]);
+  //wildLodestone2.blindWalk([195, 107]);
+  wait(gaussRangeInt(4200, 5400));
+  moveMouse(629, 37);
+  fastClick(mouse_Left);
+  wait(gaussRangeInt(4200, 5400));
+  moveMouse(624, 17);
+  fastClick(mouse_Left);
+
+  wait(gaussRangeInt(4200, 5400));
+
+  if not minimap.findSymbol(p, MM_SYMBOL_DIVINATION, minimap.getBounds) then
+  begin
+    writeln('ray''s fucking useless');
+    //TerminateScript;
+  end;
+end;
+
+procedure edgeToWisps();
+begin
+  wait(1500);
+  didWeTele := false;
+  writeln('did we tele flag is: ', didWeTele);
+  walkToEdgeBank();
+  openBank();
+  wildyLodestoneTele();
+  toRiftFromLodestone();
+
+  repeat
+    if not (actionBar.getHPPercent()) then
+      typeSend('3', false);
+      gaussRangeInt(400, 800);
+  until(actionBar.getHPPercent() = 100);
+  writeln('walked to wisps from edge');
+end;
+
+function TSPSArea.blindWalk(pos: TPoint): boolean; override;
+var
+  tries: integer;
+  ctrlPoints: TPointArray;
+  p: TPoint;
+begin
+  result := false;
+
+  repeat
+    if (not isLoggedIn()) then
+      exit();
+
+    p := self.getPlayerPos();
+
+    inc(tries);
+
+    if ((tries) > 10) then
+      break();
+  until (not p.equals([-1, -1]));
+
+  if (tries <= 10) then
+  begin
+    ctrlPoints := TPABetweenPoints(p, pos, 15 + random(25), 15);
+    result := self.walkPath1(ctrlPoints);
+  end;
+
+  print(self.getName()+'.blindWalk(): result = '+boolToStr(result));
+end;
+
+//****************************************************
+//       WE SHOULD TELE
+//   --determins if we should tele
+//      - teles if under 99% hp
+//
+//****************************************************
+function weShouldTele(): boolean;
+begin
+  writeLn('checking hp: ', actionBar.getHpPercent());
+  if (actionBar.getHPPercent() < 99) then
+    result := true;
+end;
+
+//****************************************************
+//       tele away
+//
+//      - spams 2 for freedom then 1 for glory tele
+//
+//****************************************************
+procedure teleAway();     //look for the "loading screen" thing when tele
+begin
+  typeSend('2', false);
+  failTimer.start;
+
+  repeat
+    typeSend('1', false);
+    wait(gaussRangeInt(100,150));
+    typeSend('1', false);
+    wait(gaussRangeInt(100,201));
+  until ((failTimer.getTime > 30000)) or ((minimap.findSymbol(p, MM_SYMBOL_BANK, minimap.getBounds)));
+
+  if (failTimer.getTime > 30000) then
+    scriptTerminator('NIGGER ATTACKED ME');
+
+  //didWeTele := true;
+  //writeln('did we tele flag is: ', didWeTele);
+
+
+end;
+
+//****************************************************
+//       tele faILSAFE
+//   - CHECKS IF WE SHOULD TELE THEN END SCRIPT IF WE HAVE
+//
+//
+//****************************************************
+procedure teleFailsafe();
+begin
+  loginProcedure;           //might not belong here
+           ///////////////////////
+  if (weShouldTele()) then
+    teleAway() else
+    exit;
+  //if (isLoading) then
+    //edgeToWisps();
+  scriptTerminator('BITCH HIT ME SO PUSSY OUT');
+end;
+
+//****************************************************
+//         MINIMAP.WAITPLAYERMOVING
+//   - MODIFIED WAITPLAYERMOVING SO WE CAN CHECK HP EVERY FEW TICKS
+//
+//
+//****************************************************
+function TRSMinimap.waitPlayerMoving(shiftInterval: integer = 500; maxTime: integer = 20000): boolean; override;
+var
+  t: LongWord;
+begin
+  result := false;
+  t := (getSystemTime() + maxTime);
+
+  print('Waiting while the player is moving...', TDebug.SUB);
+
+  while (getSystemTime() < t) do
+  begin
+    wait(randomRange(250, 300));
+    teleFailsafe;
+    if (not self.isPlayerMoving(shiftInterval)) then
+      exit(true);
+  end;
+end;
+
+//****************************************************
+//      SIPHONING WAIT TIME
+//    - CHECKS HP AS SIPHONING TO TELE IF NEEDED
+//
+//
+//****************************************************
+procedure waitAfterSiphoning(minWait, maxWait: Integer);
+begin
+  waitTimer.start;
+  repeat
+    teleFailsafe;
+    wait(gaussRangeInt(600, 1200));
+  until (waitTimer.getTime > randomrange(minWait, maxWait));
+end;
+
+procedure terminator();
+begin
+  writeLn('We are terminating');
+  SaveScreenshot('C:\Simba\debug.png');
+  if DTMExists(memoryDTM) then
+    freeDTM(memoryDTM);
+  players[currentPlayer].exitToLobby;
+end;
+
+procedure setupVars();
+begin
+  memoryDTM := DTMFromString('mbQAAAHicY2VgYLjBxMBwHYifMkHYJ4E4jJGBwQOIQ4E4hRHCf7ZxDlA1EwrmB5LomBELBgMAuugIgg==');
+  wildLodestone.setup('wildLodestone', RUNESCAPE_SURFACE);
+  searchBox1.setBounds(35, 532, 93, 547);
+end;
+
+procedure setup();
+begin
+  clearDebug();               // Clear the debug box
+  declarePlayers();             // Set up your username/pass
+  disableIPScreenshots := true;
+  disableSRLLog := true;
+  addOnTerminate('terminator');
+  setupSRL();                   // Load the SRL include files
+  setupVars();
+  loginProcedure();
+  SPS.setup('cursedWispLocation', RUNESCAPE_SURFACE);
+end;
+
+
+
+//**************************
+//
+//      FIND WISP
+//  - Returns true if wisp found else false
+//
+//**************************
+function wispFind(): boolean;
+var
+  i: integer;
+begin
+  findColorsTolerance(cursedWispTPA, 8295859, mainScreen.getBounds(), 14, colorSetting(2, 0.35, 1.85));
+  if (length(cursedWispTPA) < 1) then
+  begin
+    writeLn('Could not find wisp on screen');
+    exit(false);
+  end;
+
+  cursedWispATPA := cursedWispTPA.toATPA(10, 10);
+  cursedWispATPA.filterBetween(0,7);              //filters out points too small to be wisps
+
+  if (length(cursedWispATPA) < 1) then
+    exit(false);
+
+  result := true;
+  writeLn('Wisp Found!');
+
+end;
+
+
+
+//******************
+//      CLICK WISP
+// - main procedure to click wisp
+// - click closest wisp
+//
+//***************************
+procedure clickWisp();
+var
+  i: integer;
+begin
+  teleFailsafe();
+
+  if not (wispFind()) then
+  begin
+    SPS.blindWalk([randomRange(170, 184), randomRange(130, 150)]);
+    minimap.waitPlayerMoving();
+  end;
+  if (wispFind) then
+  begin
+    cursedWispATPA.sortFromMidPoint(mainScreen.playerPoint);  //finds the closest wisp
+    for (i := 0) to (high(cursedWispATPA)) do
+    begin
+      //mouse(middleTPA(cursedWispATPA[i]), MOUSE_MOVE);
+      teleFailsafe();
+      if (length(cursedWispATPA) > 1) then
+        moveMouse(middleTPA(cursedWispATPA[i]));
+      if (isMouseOverText(wispText, gaussRangeInt(50, 150))) then
+      begin
+        fastClick(MOUSE_LEFT);
+        writeLn('Wisp Clicked');
+        minimap.waitPlayerMoving();
+        exit;
+      end;
+    end;
+  end;
+end;
+
+
+//*******************************
+//     SET RIFT BOUNDS FOR SEARCHBOX
+//  - sets area for finding deposit on rift
+//
+//
+//*******************
+procedure setRiftBounds();
+begin
+  loginProcedure();
+
+  minimap.waitPlayerMoving();
+
+  //offsetting x/y for searchbox area
+
+  if (testCodeTP.x < 560) then
+    x1 := testCodeTP.x + 10 else
+    x1 := 570;
+
+  y1 := testCodeTP.y;
+
+  if (testCodeTP.x < 420) then
+    x2 := testCodeTP.x + 150 else
+    x2 := 570;
+
+  if (testCodeTP.y < 270) then
+    y2 := testCodeTP.y + 110 else
+    y2 := 380;
+
+  riftBox.setBounds(x1, y1, x2, y2);
+
+  teleFailsafe();
+
+end;
+
+//*******************************
+//     RIFT CHECK ON MS
+//  - checks if the rift is on the MS
+//  - once on MS set rift bounds
+//
+//*******************
+function isRiftOnMS(): boolean;
+begin
+  loginProcedure();
+  teleFailsafe();
+  if not (minimap.findSymbol(p, MM_SYMBOL_DIVINATION, minimap.getBounds)) then
+    SPS.blindWalk([randomRange(176, 185), randomRange(125, 145)]);
+    //scriptTerminator('div sym not on mm');
+  if ((p.x < 10) or (p.y < 0)) then
+    SPS.blindWalk([randomRange(176, 185), randomRange(125, 145)]);
+    //scriptTerminator('div symbol not found on MM');
+
+  minimap.waitPlayerMoving();
+
+  testCodeTP := minimap.pointToMainScreen(p);         //points on screen via MM
+  writeln(testCodeTP);
+  if ((testCodeTP.x < 10) or (testCodeTP.y < 10)) then  //if point on MS not found break out and return false
+      exit(false);
+
+  teleFailsafe();
+  /////////////setRiftBounds();
+  if (y2 > 378) then
+  begin
+    writeln('Walking to Rift');
+    SPS.blindWalk([gaussRangeInt(137, 145), gaussRangeInt(125, 140)]); // walk to random coordinates near rift
+    minimap.waitPlayerMoving();
+    writeln('Finished walking to Rift!');
+  end;
+  setRiftBounds();
+  result := true;
+end;
+
+//*******************************
+//     RIFT CLICK
+//  - FIND RIFT OPTION TO CLICK THEN RIGHT CLICK
+//
+//
+//*******************
+function riftClick(): boolean;
+begin
+  chanceVar := 7;
+  loginProcedure();
+  failTimer.start;
+  repeat
+    teleFailsafe();
+    moveMouse(riftBox.getGaussPoint);
+  until (isMouseOverText(riftText) or (failTimer.getTime > 60000));
+
+  if (failTimer.getTime > 60000) then
+    scriptTerminator('Could not find energy rift within 1 min');
+  if (Random(0,10) > chanceVar) then
+    wait(gaussRangeInt(1500, 2500)) else
+    wait(gaussRangeInt(500, 1000));
+
+  if isMouseOverText(riftText) then
+    fastClick(mouse_Right);
+
+  if chooseOption.isOpen(gaussRangeInt(1000,1500)) then
+  begin
+    writeLn('Opened rift menu');
+    if not (chooseOption.select(riftOption, gaussRangeInt(500,1200))) then
+      scriptTerminator('Did not select option')
+    else
+      chooseOption.select(riftOption, (gaussRangeInt(500, 1500)));
+      //scriptTerminator('Choose option not opened');
+    writeLn('Deposit option selected');
+  end;
+end;
+                  /////////////ADD IN IMPLEMENTATION OF WAITING FOR RIFT AS DEPOSITING W/ INVENT COUNTERS
+ procedure waitDeposit();
+ begin
+  writeLn('Depositing...');
+  failTimer.start;
+  repeat
+    waitAfterSiphoning(500,2000);
+    if (isLoading) then
+      break;
+  until ((tabBackpack.countDTM(memoryDTM) = 0) or (failTimer.getTime > 60000));
+ end;
+
+//*******************************
+//     FIND RIFT
+//  - FINDS THE RIFT ON THE MAIN SCREEN
+//  - CLICKS THE RIFT AFTER FOUND
+//
+//*******************
+procedure findRift();//: boolean;
+begin
+  loginProcedure();
+  if not (isRiftOnMS) then   //if rift isn't on MS safewalk to it
+  begin
+    failTimer.start;
+    repeat
+      writeln('Walking to Rift');
+      SPS.blindWalk([gaussRangeInt(140, 150), gaussRangeInt(125, 140)]); // walk to random coordinates near rift
+      minimap.waitPlayerMoving();
+      writeln('Finished walking to Rift!');
+    until (isRiftOnMS) or (failTimer.getTime > 90000);
+    if (failTimer.getTime > 90000) then
+      scriptTerminator('Could not walk to rift');
+  end
+   teleFailsafe();
+
+end;
+
+function getXP: integer;
+begin
+  result := StrToInt(ExtractFromStr(tesseractGetText(searchBox1, myFilter), numbers));
+end;
+
+
+//-----------------------------------------------------------------
+
+procedure testCode();
+begin
+ // teleFailsafe();
+   // TerminateScript();
+
+end;
+
+procedure setBreakTime();
+begin
+  case randomrange(1, 1000) of
+    1..500:    breakTime := randomrange((breakMin * 60000), (breakMax * 60000));
+    601..700:  breakTime := randomrange((breakMin * 55000), (breakMax * 55000));
+    701..800:  breakTime := randomrange((breakMin * 50000), (breakMax * 50000));
+    801..900:  breakTime := randomrange((breakMin * 45000), (breakMax * 45000));
+    901..1000: breakTime := randomrange((breakMin * 40000), (breakMax * 40000));
+  end;
+end;
+
+procedure doBreak();
+begin
+  players[currentPlayer].exitToLobby();
+  writeln('breaking');
+  wait(gaussRangeInt((breakForMin * 60000), (breakForMax * 60000)));
+  writeln('done breaking');
+  loginProcedure;
+end;
+
+procedure mainLoop();
+begin
+  repeat
+  //if (didWeTele) then
+    //edgeToWisps();
+  if not (tabBackpack.isFull) then
+  begin
+    prevXP := getXP;            //counts current items in inv
+    writeLn('Current XP: ', getXP);
+
+    failTimer.start;
+    writeln('looking for wisp');
+    clickWisp;
+    if (tabBackpack.isFull) then
+    begin
+      SPS.blindWalk([gaussRangeInt(137, 145), gaussRangeInt(125, 140)]);
+      minimap.waitPlayerMoving();
+      break;
+    end;
+
+  end;                                    //clicks wisp if found then wait
+  waitAfterSiphoning(1400, 2600);
+  failTimer.start;
+  repeat
+    if (tabBackpack.isFull) then
+    begin
+      writeln('proceed to deposit');
+      SPS.blindWalk([gaussRangeInt(137, 145), gaussRangeInt(125, 140)]);
+      minimap.waitPlayerMoving();
+      break;
+    end;
+
+    if not (prevXP = getXP()) then       //if prev inv.count = current inv.count after wisp clicked, then not siphoning
+    begin
+      prevXP := getXP;
+      writeLn('Current XP: ', prevXP);
+      writeLn('Siphoning...');
+      waitAfterSiphoning(1000, 2000);
+
+      if (tabBackpack.isFull) then
+      begin
+        SPS.blindWalk([gaussRangeInt(137, 145), gaussRangeInt(125, 140)]);
+        minimap.waitPlayerMoving();
+        break;
+      end;
+
+      while (prevXP <> getXP) do
+      begin
+        if not (tabBackpack.isFull()) then
+        begin
+          if not (tabBackpack.isFull()) then
+            prevXP := getXP;
+          writeln('Siphon waiting');
+          waitAfterSiphoning(1000, 2500);
+          if (tabBackpack.isFull()) then
+          begin
+            SPS.blindWalk([gaussRangeInt(137, 145), gaussRangeInt(125, 140)]);
+            minimap.waitPlayerMoving();
+            break;
+          end;
+        end else
+          break;
+      end;
+    end;
+    if (tabBackpack.isFull()) then
+    begin
+      writeLn('Full inventory. Proceed to Deposit');
+      break;
+    end;
+    until (tabBackpack.isFull() or (prevXP = getXP));      //if same inv counts prev. current, break and click another
+  until (tabBackpack.isFull());
+
+  writeLn('Full inventory. Proceed to Deposit (Out of loop)');
+  findRift;
+  riftClick();
+  waitDeposit();
+
+  teleFailsafe();
+end;
+
+procedure runMainLoop();
+begin
+  runTime := randomrange((runForMin * 3600000), (runForMax * 3600000));
+  runForTimer.start;
+  repeat
+    setBreakTime;
+    breakTimer.start;
+    repeat
+      mainLoop;
+    until (breakTimer.getTime > breakTime);
+    doBreak;
+  until (runForTimer.getTime > runTime);
+  scriptTerminator('script ran succesfully');
+end;
+
+// main loop
+begin
+  setup();
+  testCode();
+  runMainLoop;
+end.
