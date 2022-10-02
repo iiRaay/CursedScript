@@ -1,0 +1,27 @@
+procedure failsafeWalk();
+begin
+  writeln('making minimap big and walking to div symbol');
+  makeMinimapBig;
+  if not minimap.findSymbol(p, MM_SYMBOL_DIVINATION, mainscreen.getBounds) then
+  begin
+    makeMinimapSmall;
+    scriptTerminator('failed to find div symbol after making minimap big? terminating');
+  end;
+
+  writeln(p);
+  mouse(Point(p.x + gaussrangeint(30, 45), p.y + random(-5, 5)) , mouse_left);
+  wait(gaussRangeInt(200, 450));
+  makeMinimapSmall;
+  writeln('waiting for player to stop walking, after making minimap small');
+  minimap.waitPlayerMoving;
+end;
+
+function weAreDeadEdge(): boolean;
+begin
+  writeln('checking if we''re dead @ Edge');
+  result := minimap.findSymbol(p, MM_SYMBOL_FURNACE, minimap.getBounds);
+  writeln('p is: ', p);
+  if result then
+    {$IfDef SMART}smartImage.drawCircle(p, 3, true, clwhite);{$EndIf}
+  writeln('result of weAreDeadEdge is: ', result);
+end;

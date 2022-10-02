@@ -1,0 +1,332 @@
+program new;
+{$DEFINE SMART}
+{$I SRL-6/SRL.simba}
+{$I SPS/lib/SPS-RS3.Simba}
+{$I ginclude/master.simba}
+
+const
+  botterID = 4; //SAVE BOT ID ON THE VPS (NOTEPAD) SO YOU CAN CHECK IF YOU FORGET
+  world1 = 117;
+  maxDefLevel = 50;
+
+  areWeMembs = true;  //False if f2p, True if p2p
+  areWeRay = false;    //HI RAY IF YOU'RE READING THIS SET THIS TO TRUE
+  checkIP = true;
+
+var
+  lockDTM: integer;
+  trollTPA, trollTPA2: TPointArray;
+  trollATPA: T2DPointArray;
+
+procedure setupVariables();
+begin
+  addOnTerminate('terminator');
+
+  botID := botterID;
+
+  lockDTM := DTMFromString('mLgAAAHicY2JgYMiHYm4gZgLiy5MkGQ7OtGfgArJBmBGKGRgAblMEGw==');
+end;
+
+procedure terminator();
+begin
+  writeLn('We are terminating');
+  freeDTM(lockDTM);
+
+  writeln('terminating client!');
+  {$IfDef SMART}smartFreeCurrentClient();{$EndIf}
+  {$IfDef SMART}smartKillClient(__smartCurrentPID);{$EndIf}
+end;
+
+procedure declarePlayers();
+begin
+  if isRay(botID) <> areWeRay then
+    scriptTerminator('isRay (for this account) is: "' + BoolToStr(isRay(botID)) + '" yet areWeRay is: "' + BoolToStr(areWeRay) + '" ? Terminating');
+
+  setLength(players, 1);
+  with players[0] do
+  begin
+    loginName := getUsername(botID);
+    password := getPassword(botID);
+    isActive := true;
+    isMember := areWeMembs;
+    world := world1;
+  end
+  currentPlayer := 0;
+end;
+
+procedure loginProcedure();
+begin
+  if not isLoggedIn() then
+  begin             // If player isn't logged in then
+    players[currentPlayer].login();    // Log them in
+    wait(randomRange(1500, 3000));
+  end;
+
+  if ((minimap.getAngleDegrees > 5) and (minimap.getAngleDegrees < 355)) then
+    begin
+      writeLn('Setting Compass');
+      minimap.clickCompass;
+      mainScreen.setAngle(MS_ANGLE_HIGH);
+      wait(randomrange(650, 1250));
+    end;
+
+  exitTreasure;
+  claimTicket;
+  closePopup;
+end;
+
+{
+function foundTrollShamans(): boolean;
+var
+  i: integer;
+  shamanTPA, mmTPA, msTPA: TPointArray;
+  shamanATPA, msATPA1: T2DPointArray;
+begin
+  writeln('0');
+  if not findColorsTolerance(shamanTPA, 11312473, mainscreen.getBounds, 7, colorSetting(2, 0.52, 1.04)) then
+    exit(false);
+
+  writeln('1');
+  shamanATPA := shamanTPA.toATPA(50, 50);
+
+  for i := 0 to high(shamanATPA) do
+  begin
+    //smartImage.debugTPA(shamanATPA[i]);
+  end;
+
+  repeat
+    smartImage.clear;
+    mmTPA := minimap.getDots(MM_DOT_NPC, minimap.getBounds, 55);
+    msTPA := minimap.pointsToMainscreen(mmTPA, true);
+
+    msATPA1 := msTPA.toATPA(1, 1);
+    smartImage.debugATPA(msATPA1);
+
+    for i := 0 to high(msATPA1) do
+    begin
+      writeln('asdf');
+    end;
+
+    wait(200);
+  until false;
+
+  result := true;
+end;
+}
+
+procedure waitTime(randomInt: integer);
+begin
+  case randomInt of
+  1..10: wait(RandomRange(100,500));
+  11..17: wait(RandomRange(400, 800));
+  18..20: wait(RandomRange(1000, 2000));
+  21: wait(RandomRange(2000,4000));
+  end;
+end;
+
+function isInCombat(): boolean;
+begin
+  if findDTM(lockDTM, x, y, 100, 0, 130, 30) then
+    exit(true) else
+      exit(false);
+end;
+
+function findTroll(): boolean;
+var
+  i: integer;
+  trollBox: Tbox;
+begin
+  writeln('finding trolls');
+  //loginProcedure;
+  //if not (findColorsTolerance(trollTPA, 9928778, mainscreen.getBounds(), 11, colorSetting(2, 0.46, 0.66))) then
+
+  if not (findColorsTolerance(trollTPA, 11312473, mainscreen.getBounds(), 7, colorSetting(2, 0.52, 1.04))) then
+    exit(false);
+  trollATPA := trollTPA.toATPA(30,30);
+  trollATPA.filterBetween(0, 10);
+  trollATPA.sortFromMidPoint(mainscreen.playerPoint);
+  {$IfDef SMART}smartImage.debugATPA(trollATPA);{$EndIf}
+  for i := 0 to high(trollATPA) do
+  begin
+    trollBox.setBounds(trollATPA.getBounds.x1-20, trollATPA.getBounds.y1-20, trollATPA.getBounds.x2+20, trollATPA.getBounds.y2+20);
+
+    if (findColorsTolerance(trollTPA2, 3287281, trollBox, 3, colorSetting(2, 0.13, 0.23))) then
+    begin
+      writeln('found red ring, pray to uzzi that this works');
+
+      trollATPA.deleteIndex(i);
+      i := (i - 1);
+
+      if length(trollATPA) = (i + 1) then
+        exit(false);
+    end;
+  end;
+
+  {$IfDef SMART}smartImage.clear;{$EndIf}
+  {$IfDef SMART}smartimage.debugATPA(trollATPA);{$EndIf}
+
+  if length(trollATPA) > 0 then
+    result := true;
+end;
+
+procedure clickTroll();
+var
+  i, failedClicks: integer;
+begin
+  writeln('waiting 1-2 seconds');
+  wait(gaussRangeInt(1250, 2450));
+
+  if chance1000(111) then
+  begin
+    writeln('waiting 1-4 seconds. 11% chance this would happen');
+    wait(gaussRangeInt(1250, 4250));
+  end;
+
+  if (tabStats.getSkillLevel(SKILL_DEFENCE) = maxDefLevel) then
+    TerminateScript;
+
+  repeat
+    loginProcedure;
+
+    if (findTroll) then
+    begin
+      for (i := 0) to high(trollATPA) do
+      begin
+        if i > 2 then
+          break;
+        if isInCombat then
+          exit;
+        waitTime(RandomRange(0, 22));
+        moveMouse(middleTPA(trollATPA[i]));
+        if (isMouseOverText(['Att'])) then
+        begin
+          fastClick(mouse_Left);
+          if not boolBeforeTime(,, 2450, 3650, @redAroundMouse) then
+            inc(failedClicks)
+          else
+            exit;
+        end;
+      end;
+    end else
+      writeln('failed to find troll');
+
+    wait(gaussRangeInt(150, 350));
+  until false;
+end;
+
+procedure setup();
+begin
+  clearDebug();
+
+  {$IfDef SMART}smartEnableDrawing := true;{$EndIf}
+  {$IfDef SMART}smartShowConsole := true;{$EndIf}
+  disableIPScreenshots := true;
+  disableSRLLog := true;
+
+  setupVariables;
+  declarePlayers();
+
+  if checkIP then
+    changeIP(botID);
+
+  setupSRL();
+end;
+
+procedure mainloop(hoursPerLoad: integer);
+var
+  hoursTimer: TTimeMarker;
+begin
+  loginProcedure;
+
+  hoursTimer.start;
+  repeat
+    loginProcedure;
+
+    if not (isInCombat) then
+      clickTroll() else
+    begin
+      writeln('waiting while in combat');
+      mouseOffClient(OFF_CLIENT_RIGHT);
+      repeat
+        wait(gaussRangeInt(150, 300));
+      until (not isInCombat);
+      writeln('no longer in combat');
+
+      if RandomRange(1, 100) < 20 then
+      begin
+        writeln('waiting 1450 - 5850, there was a ~20% chance this would occur');
+        wait(gaussRangeInt(1450, 5850));
+      end;
+
+      if RandomRange(1, 100) < 3 then
+      begin
+        writeln('waiting 22450 - 44850, there was a ~2% chance this would occur');
+        wait(gaussRangeInt(22450, 44850));
+      end;
+    end;
+  until (hoursTimer.getTime > (hoursPerLoad * 3600000));
+end;
+
+function __findMouseOverBox(out b: TBox): boolean; override;
+const
+  COLOR_CHECK = 7103059;
+var
+  cW, cH, i, len, matchLen: integer;
+  tpa, tpaMatches, tmp: TPointArray;
+  atpa, lines: T2DPointArray;
+  box: TBox;
+  p: TPoint;
+  cts: byte := GetToleranceSpeed();
+begin
+  result := false;
+  getMousePos(p.x, p.y);
+  getClientDimensions(cW, cH);
+  //box.setbounds(0, 0, 576, 392);
+  box.setbounds(0, 0, 666, 435);
+
+  // box := [0, 0, cW - 1, cH - 1]; // incase you wanna debug on a img.
+
+  if (not findColorsTolerance(tpa, 0, box, 15, colorSetting(0))) then
+    exit();
+
+  setColorToleranceSpeed(0);
+  atpa := clusterTPAEx(tpa, 3, 3); // the border is 4*4 so cluster 1 less :)
+  sortATPASize(atpa, true); // the biggest one will most likely be ours.
+
+  len := length(atpa);
+  setLength(lines, 2);
+
+  for i := 0 to (len - 1) do
+  begin
+    if (length(atpa[i]) < 50) then
+      continue();
+
+    box := getTPABounds(atpa[i]);
+    lines[0] := TPAFromLine(box.x1, box.y1, box.x1, box.y2); // two vert lines going down.
+    lines[1] := TPAFromLine(box.x2, box.y2, box.x2, box.y2);
+    tmp := mergeATPA(lines);
+
+    getSamePointsATPA([tmp, atpa[i]], tpaMatches);
+    matchLen := length(tpaMatches);
+
+    if (matchLen = 0) then
+      continue();
+
+    if (inRange(length(lines[0]) + length(lines[1]), matchLen - 2, matchLen + 2)) then // allow some leanway.
+      if (similarColors(COLOR_CHECK, getColor(box.x1, box.y2 + 4), 20)) or (similarColors(COLOR_CHECK, getColor(box.x1, box.y2 + 3), 20)) then
+      begin
+        b := box;
+       // smartImage.drawBox(b);
+        setColorToleranceSpeed(cts);
+        exit(true);
+      end;
+  end;
+  setColorToleranceSpeed(cts);
+end;
+
+begin
+  setup;
+  repeat
+    mainloop(randomrange(1, 4));
+  until false;
+end.

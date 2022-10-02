@@ -1,0 +1,109 @@
+function closeDTMisOnScreen(): boolean;
+begin
+  result := findDTM(closeDTM, x, y, mainscreen.getBounds);
+end;
+
+function closeDTMisNotOnScreen(): boolean;
+begin
+  result := not findDTM(closeDTM, x, y, mainscreen.getBounds);
+end;
+
+{
+gets bankerATPA, looks for boothTPA in a rectangle around that
+}
+function getVarrockWestBankOnMS(maxBankerLength: integer = 35; rightClick, sortFromPlayer, waitPlayerMoving: boolean = false): boolean;
+const
+  bankerColor = 5319737;
+  bankerTol = 10;
+  bankerHue = 0.25;
+  bankerSat = 0.82;
+
+  boothColor = 6517121;
+  boothTol = 9;
+  boothHue = 0.53;
+  boothSat = 1.1;
+var
+  failTimer: TTimeMarker;
+  i, maxTime: integer;
+  bankerTPA, boothTPA: TPointArray;
+  bankerATPA: T2DPointArray;
+  boothBox: Tbox;
+begin
+  //some failsafe procedure that checks if we're logged in and does stuff if we are not
+  mouseOffClient(OFF_CLIENT_RIGHT);
+
+  if waitPlayerMoving then
+     minimap.waitPlayerMoving;
+
+  if FindDTM(closeDTM, x, y, mainscreen.getBounds) then
+  begin
+    writeln('found dtm, exitting true');
+    exit(true);
+  end;
+
+  if not findColorsTolerance(bankerTPA, bankerColor, mainscreen.getBounds, bankerTol, colorSetting(2, bankerHue, bankerSat)) then
+  begin
+    writeln('no banker colors found at all');
+    exit(false);
+  end;
+
+  bankerATPA := bankerTPA.toATPA(35, 35);
+  bankerATPA.filterBetween(0, maxBankerLength); // http://i.imgur.com/zQxlq09.png
+
+  if length(bankerATPA) < 1 then
+  begin
+    writeln('not enough banker colors found');
+    exit(false);
+  end;
+
+  if sortFromPlayer then
+    SortATPAFromMidPoint(bankerATPA, mainscreen.getCenterPoint) else
+    SortATPASize(bankerATPA, true);
+
+  for i := 0 to high(bankerATPA) do
+  begin
+     boothBox.setBounds(bankerATPA[i].getBounds.x1 - 25, bankerATPA[i].getBounds.y1, bankerATPA[i].getBounds.x2 + 25, bankerATPA[i].getBounds.y2); //expand bankerATPA[i] by 25 left & right
+     if not findColorsTolerance(boothTPA, boothColor, boothBox, boothTol, colorSetting(2, boothHue, boothSat)) then //look for booth colors within expanded bankerATPA[i]
+       continue;
+
+     //smartImage.debugTPA(boothTPA);
+     MoveMouse(middleTPA(boothTPA));
+
+     {
+     if not isMouseOverText(['Bank'], gaussRangeInt(650, 1250)) then
+       continue;
+     }
+
+     if not rightClick then
+     begin
+       fastClick(mouse_Left);
+       if not boolBeforeTime(,,,, @redAroundMouse) then
+        continue
+       else
+        result := true;
+        break;
+     end else
+     begin
+       fastClick(mouse_right);
+       if not chooseOption.select(['ank', 'ooth'], 3050) then
+        continue;
+
+       result := true;
+       break;
+     end;
+
+     writeln('we should''ve breaked / continued...? why are we here');
+     break;
+  end;
+
+  maxTime := gaussrangeint(12500, 15000);
+  failTimer.start;
+  repeat
+    wait(gaussrangeint(150, 350));
+  until ((FindDTM(closeDTM, x, y, mainscreen.getBounds)) or (failTimer.getTime > maxTime));
+  if failTimer.getTime > maxTime then
+  begin
+    writeln('took longer than max time of ', maxTime, ' for bank to open?? exitting false');
+    exit(false);
+  end;
+end;

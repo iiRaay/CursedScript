@@ -1,0 +1,212 @@
+function TPlayer.loginToLobby(): boolean; override;
+var
+  tries: integer = 1;
+  reachedMaxTries: boolean;
+begin
+  print('TPlayer.loginToLobby(): ', TDebug.HEADER);
+  __areDynamicInterfacesSet := false;
+
+  if (not self.isActive) then
+  begin
+    print('TPlayer.loginToLobby(): Player ' + self.nickname + ' is not active...', TDebug.FOOTER);
+    exit(false);
+  end;
+
+  if lobby.isOpen() then
+  begin
+    print('TPlayer.loginToLobby(): Player ' + self.nickname + ' is already in lobby.', TDebug.FOOTER);
+    exit(true);
+  end;
+
+  if (not __setInputBoxes()) then
+  begin
+    print('TPlayer.loginToLobby(): Failed to find username and/or password box', TDebug.FOOTER);
+    if findColor(x, y, 0, 96, 57, 96, 57) then
+    begin
+      mouse(Point(357 + gaussRangeInt(0, 80), 384 + gaussRangeInt(0, 4)), mouse_left);
+      repeat
+        wait(RandomRange(200, 300));
+      until (not findColor(x, y, 0, 96, 57, 96, 57));
+    end;
+    exit(false);
+  end;
+
+  repeat
+    if (isLoggedIn() or lobby.isOpen()) then
+    begin
+      result := true;
+      break;
+    end;
+
+    print('Login Attempt ' + toStr(tries) + ': ' + capitalize(self.loginName) + ' (' + capitalize(self.displayName) + ')');
+
+    print('Entering username...', TDebug.SUB);
+    __enterLoginInfo(__boxUsername, self.loginName, true, true);
+    wait(500 + random(200));
+
+    print('Entering password...', TDebug.SUB);
+    __enterLoginInfo(__boxPassword, self.password, false, true);
+    wait(800 + random(200));
+
+    result := self.__handleLoginPopup(inc(tries), false, reachedMaxTries);
+
+    if reachedMaxTries then tries := 1; //'reachedMaxTries' is passed down from __respondToPopup()
+  until result;
+
+  if (not disableIPScreenshots) then takeScreenshot('IP_address.png');
+
+  print('TPlayer.loginToLobby(): ' + toStr(result), TDebug.FOOTER);
+end;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+function TPlayer.__handleLoginPopup(tries: integer; inLobby: boolean; out reachedMax: boolean): boolean; override;
+var
+  p: TPoint;
+  i: integer;
+  timeOut: TTimeMarker;
+  popupMessage: string;
+  errorMessage: TVariantArray;
+  messages: array [0..17] of TVariantArray;
+begin
+  timeOut.start();
+
+  repeat // Wait until the popup appears, or we hit the lobby/isLoggedIn
+    case inLobby of
+      true: if isLoggedIn() then exit(true);
+      false: if (lobby.isOpen() or isLoggedIn()) then exit(true);
+    end;
+
+    //This if statement is all that's been added to the original code. along with 'override;' at the end of the first line.
+    if findColor(x, y, 0, 96, 57, 96, 57) then //searches a single pixel box for the 0 color
+    begin
+      mouse(Point(357 + gaussRangeInt(0, 80), 384 + gaussRangeInt(0, 4)), mouse_left); //I'm lazy
+      repeat
+        wait(RandomRange(200, 300));
+      until (not findColor(x, y, 0, 96, 57, 96, 57));
+    end;
+
+    popupMessage := __getPopupMessage();
+
+    if (timeOut.getTime() > 60000) then
+    begin
+      print('Took too long to find login popup or login - respawning SMART');
+      popupMessage := 'session has now ended'; // Trick it to reload
+    end;
+
+    if (timeOut.getTime() > 15000) then // If nothing after 15s, check we actually
+    case inLobby of                     // clicked the Login button
+      true: if lobby.findPlayButton(p) then exit(false);
+      false: if __setInputBoxes() then exit(false);
+    end;
+
+    wait(random(500, 750));
+  until (length(popupMessage) > 0);
+
+  messages := [
+    {Popup Text                         Wait time  MaxTries  Action}
+    ['Unknown login popup',                   0,         2,  'Next_Player_F'],
+    ['Invalid username or password',          0,         2,  'Next_Player_F'],
+    ['Your account has been disabled',        0,         0,  'Next_Player_F'],
+    ['Your ban will be lifted in',            0,         0,  'Next_Player_F'],
+    ['Your account has been involved in',     0,         0,  'Next_Player_F'],
+    ['Too many incorrect logins',             5 * 60000, 2,  'Next_Player_F'],
+    ['Your account has not logged out',       15000,     5,  'Next_Player_T'],
+    ['You need a member''s account',          0,         1,  'Set_Non-Member'],
+    ['Player in member-only area',            0,         0,  'Set_Member'],
+    ['Error connecting',                      20000,     4,  'Terminate'],
+    ['Unable to connect',                     20000,     4,  'Terminate'],
+    ['Runescape has been updated',            0,         0,  'Reload_Client'],
+    ['Client token changed',                  0,         0,  'Reload_Client'],
+    ['session has now ended',                 0,         0,  'Reload_Client'],
+    ['Our systems are currently unavailable', 3 * 60000, 8,  'Reload_Client'],
+    ['Login limit exceeded',                  20000,     8,  'Set_World'],
+    ['You must have a total skill level of',  0,         0,  'Set_World'],
+    ['Cannot connect to world',               10000,     0,  'Set_World']];
+
+  for i := 0 to high(messages) do
+    if (pos(messages[i][0], popupMessage) > 0) then
+    begin
+      errorMessage := messages[i];
+      print('Login message: ' + errorMessage[0], TDebug.SUB);
+      break();
+    end;
+
+  if length(errorMessage) < 1 then
+  begin
+    print('Unknown login popup message: ' + popupMessage, TDebug.WARNING);
+    takeScreenshot('unknown_login_popup.png');
+    print('PLEASE report this in the SRL-6 bugs section: [url]https://villavu.com/forum/project.php?projectid=10[/url]', TDebug.HINT);
+    errorMessage := ['Unknown login popup', 0, 3, 'Next_Player_F'];
+  end;
+
+  self.__respondToPopup(errorMessage, tries, reachedMax);
+end;
+
+{$Ifdef weirdEquipment}
+function TRSGameTabs.getTabAreas2(): TBoxArray;  //TECHNICALLY NOT AN OVERRIDE, BUT PART OF THE BELOW ONE. ALSO TECHNICALLY IS..
+begin
+  result := newTabAreaBoxArray;
+end;
+
+function TRSGameTabs.isTabVisible(tab: integer; out tabBounds: TBox): boolean; override;
+var
+  b: TBoxArray;
+  p: TPoint;
+  l, i: integer;
+begin
+  if tab = 3 then
+    b := self.getTabAreas2() else
+    b := self.getTabAreas();
+
+  l := length(b);
+
+  if (length(b) > 0) then
+    for i := 0 to (l -1) do
+      if (self._findTab(p, tab, b[i])) then
+      begin
+        tabBounds := b[i];
+        exit(true);
+      end;
+end;
+
+function TRSGameTabs.getActiveTabArea2(): TBox;
+const
+  COLOR_ACTIVE_TAB = 7037013;
+var
+  b, box: TBox;
+  tpa: TPointArray;
+begin
+  if (not self.isSetup) then
+    self.__initTabs();
+
+  //box := gameTabs.__tabSelectionArea;
+  testbox := newTabAreaBoxArray.getBounds;
+  box := newTabAreaBoxArray.getBounds;
+  b := [box.x1, box.y1, box.x2, box.y1 +10];
+
+  result := [-1, -1, -1, -1];
+  writeln('b is: ', b);
+  if (findColors(tpa, COLOR_ACTIVE_TAB, b)) then
+  begin
+    writeln('ya deeeg');
+    result := tpa.getBounds();
+    incEx(result.y2, 20);
+  end;
+end;
+
+function TRSGameTabs.isTabActive(tab: integer): boolean; override;
+var
+  b: TBox;
+  p: TPoint;
+begin
+  if tab = 3 then
+    b := self.getActiveTabArea2() else
+    b := self.getActiveTabArea();
+
+  writeln('b is now: ', b);
+  if (b.x1 = -1) then
+    exit(false);
+ writeln('2');
+  result := self._findTab(p, tab, b);
+end;
+{$EndIf}

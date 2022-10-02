@@ -1,0 +1,33 @@
+program new;
+{$DEFINE SMART}
+{$I SRL-6/SRL.simba}
+{$I SPS/lib/SPS-RS3.Simba}
+{$I ginclude/master.simba}
+
+const
+  email = '';    //e.g. email@email.com
+  password = ''; //e.g. password123
+  isRaay = ;     //e.g. true
+  VPSinfo = '';  //e.g. windows3
+
+function gotBotID(): boolean;
+var
+  thePage: string;
+begin
+  thePage := GetPage('http://198.50.160.247/phpmyadmin/getID.php?username=' + email);
+
+  if strContains(thePage, 'error') then
+    exit(false);
+
+  if ((length(thePage) > 1) and (length(thePage) < 5)) then
+    result := true;
+end;
+
+begin
+  writeln(addBotToDB(email, password, isRaay));
+
+  if not boolBeforeTime(,,,, @gotBotID) then
+    scriptTerminator('failed to get a Bot ID in time');
+
+  writeln(updateVPSinfo(getID(email), VPSinfo));
+end.

@@ -1,0 +1,51 @@
+program new;
+const
+  ginclude = true;
+  Memory = false;
+
+  SPSalso = false;
+  ProSocks = false;
+
+var
+  newFile: integer;
+  whatVersion, fileName, path: string;
+
+begin
+  whatVersion := GetPage('http://www.raymondduong.com/gincludeVersion');
+
+  if ginclude then
+  begin
+    fileName := 'C:\Simba\' + 'ginclude' + whatVersion + '.zip';
+    newFile := RewriteFile(fileName, true);
+    WriteFileString(newFile, GetPage('http://www.raymondduong.com/ginclude.zip'));
+    CloseFile(newFile);
+    UnZipFile(fileName, 'C:\Simba\Includes\');
+    DeleteFile(fileName);
+  end;
+
+  if SPSalso then
+  begin
+    fileName := 'C:\Simba\' + 'asdf' + whatVersion + '.zip';
+    newFile := RewriteFile(fileName, true);
+    WriteFileString(newFile, GetPage('http://www.raymondduong.com/SPS.zip'));
+    CloseFile(newFile);
+    UnZipFile(fileName, 'C:\Simba\Includes\');
+    DeleteFile(fileName);
+  end;
+
+  if ProSocks then
+  begin
+    fileName := 'C:\Simba\' + 'Plugins\Prosocks.dll' ;
+    newFile := RewriteFile(fileName, true);
+    WriteFileString(newFile, GetPage('http://www.raymondduong.com/dlls/memory/Prosocks.dll'));
+    CloseFile(newFile);
+  end;
+
+  if Memory then
+  begin
+    fileName := 'C:\Simba\' + 'Plugins\bothelper.dll' ;
+    newFile := RewriteFile(fileName, true);
+    WriteFileString(newFile, GetPage('http://www.raymondduong.com/dlls/memory/bothelper.dll'));
+    CloseFile(newFile);
+  end;
+end.

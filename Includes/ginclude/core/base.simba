@@ -1,0 +1,802 @@
+var
+  searchBox1: Tbox;
+  holdKeyTimer: TTimeMarker;
+const
+  MyFilter: TTesseractFilter = [2, 2, [False, 0, TM_MinMax]];
+
+////////////////////////////////////////////////////////////////////////////////
+procedure scriptTerminator(debugText: string);
+begin
+  writeln(debugText);
+  TerminateScript;
+end;
+ {
+////////////////////////////////////////////////////////////////////////////////
+procedure sendEmail(destinationAddress, message: string);
+var
+  S: SSLSocket;
+begin
+  S.Init();
+  S.SetVerbose(True);
+  S.SetSecurityPolicy(false, false, true);
+//version 6
+  writeln('destination Address is: ' + destinationAddress);
+  writeln('message is: ' + message);
+  S.SMTP('smtps://smtp.gmail.com', 'tylerdewitt202@gmail.com', 'strongEmailer3', 'SenderName', 'tylerdewitt202@gmail.com', '', '', 'Subject', Message, 'text/plain; charset=UTF-8', '', '');
+//version 5
+//  S.SMTP(pchar('smtps://smtp.gmail.com'), pchar('tylerdewitt202@gmail.com'), pchar('strongEmailer3'), pchar('SenderName'), pchar('tylerdewitt202@gmail.com'), pchar('joemoranzo@gmail.com'), pchar('majomage117@yahoo.com'), pchar('Subject'), pchar('Message'), pchar('text/plain; charset=UTF-8'), pchar('C:\Simba\debug.png'), pchar('image/png'));
+  S.Free();
+end;
+}
+////////////////////////////////////////////////////////////////////////////////
+procedure holdkey(reactionTime : integer = 200; keyToHold, timeToHoldKey: integer; boolFunc: function: boolean);
+begin
+  holdKeyTimer.start;
+
+  keydown(keyToHold);
+
+  //waits until boolFunc is true (or timeToHoldKey is maxed out)
+  repeat
+    wait(randomRange(30,120));
+    writeln('boolFunc in holdkey is: ', boolFunc);
+  until ((timeToHoldKey < holdKeyTimer.getTime) or (boolFunc));
+
+  //waits for reactionTime (or timeToHoldKey is maxed out)
+  repeat
+    wait(randomRange(30,120));
+  until ((timeToHoldKey < holdKeyTimer.getTime) or (reactionTime < holdKeyTimer.getTime));
+
+  KeyUp(keyToHold);
+
+  if holdKeyTimer.getTime > timeToHoldKey then
+  begin
+    writeln('inventory didn''t empty within timeToHoldKey, is something wrong? terminating script');
+    KeyUp(keyToHold);
+    TerminateScript;
+  end;
+end;
+
+procedure holdkey2(reactionTime : integer = 200; keyToHold, timeToHoldKey: integer; boolFunc: function: boolean of object);
+begin
+  holdKeyTimer.start;
+  repeat
+    keydown(keyToHold);
+    wait(randomRange(30,120));
+    writeln('boolFunc in holdkey2 is: ', boolFunc);
+  until ((timeToHoldKey < holdKeyTimer.getTime) or (boolFunc));
+
+  repeat
+    keydown(keyToHold);
+    wait(randomRange(30,120));
+  until ((timeToHoldKey < holdKeyTimer.getTime) or (reactionTime < holdKeyTimer.getTime));
+
+  KeyUp(keyToHold);
+
+  if holdKeyTimer.getTime > timeToHoldKey then
+  begin
+    writeln('inventory didn''t empty within timeToHoldKey, is something wrong? terminating script');
+    TerminateScript;
+  end;
+end;
+
+procedure holdkey(keyToHold, timeToHoldKey: integer); overload;
+var
+  holdKeyTimer: TTimeMarker;
+begin
+  holdKeyTimer.start;
+  repeat
+    keydown(keyToHold);
+    wait(randomRange(30,120));
+  until ((timeToHoldKey < holdKeyTimer.getTime));
+
+  KeyUp(keyToHold);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function dragToAB(fromSlot, toSlot: integer): boolean;
+var
+  p: TPoint;
+begin
+  if tabBackpack.isItemInSlot(fromSlot) then
+  begin
+    writeln('dragging items!');
+    tabBackpack.mouseSlot(fromSlot, MOUSE_MOVE);
+    gaussBox(p, actionbar.getSlotBox(toSlot));
+
+    dragMouse(p);
+    result := true;
+  end else
+    print('There is no item to drag in slot ' + intToStr(fromSlot), TDebug.ERROR);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function getXP: integer;
+begin
+  result := StrToInt (ExtractFromStr(tesseractGetText(searchBox1, myFilter), numbers));
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function resetFolder(dir: string): boolean;
+begin
+  DeleteDirectory(dir, true);
+  CreateDirectory(dir);
+  if DirectoryExists(dir) then
+    result := true;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure waitForCompass();
+var
+  dial: TPointArray;
+  someBounds: TBox;
+begin
+  writeln('waiting for compass time!');
+  someBounds.setBounds(582, 18, 614, 50);
+
+  //FindColorsTolerance(dial, 9477483, someBounds, 25, ColorSetting(2, 2.20, 0.97));
+
+  failtimer.start;
+  repeat
+    wait(gaussrangeint(500, 750));
+    findColorsTolerance(dial, 9477483, someBounds, 25, ColorSetting(2, 2.20, 0.97));;
+  until ((length(dial) > 20) or (failtimer.getTime > 16600));
+  if failtimer.getTime > 16600 then
+    scriptTerminator('dial not found within 16.6 seconds, terminating');
+
+  writeln('compass found!!');
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{
+All credit to waitTypeFunc
+}
+function boolBeforeTime(XreactionTime1: integer = 200; XreactionTime2: integer = 350; XmaxTime1: integer = 5400; XmaxTime2: integer = 6600; aBool: function: boolean): boolean;
+var
+  repeatTimer: TTimeMarker;
+  maxTime, reactionTime: integer;
+begin
+  repeatTimer.start;
+  maxTime := gaussRangeInt(XmaxTime1, XmaxTime2);
+  reactionTime := gaussRangeInt(XreactionTime1, XreactionTime2);
+
+  repeat
+    if aBool() = true then
+      exit(true);
+    Wait(reactionTime);
+  until (repeatTimer.getTime > maxTime);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function boolBeforeTime2(XreactionTime1: integer = 200; XreactionTime2: integer = 350; XmaxTime1: integer = 5400; XmaxTime2: integer = 6600; aBool: function: boolean of object): boolean;
+var
+  repeatTimer: TTimeMarker;
+  maxTime, reactionTime: integer;
+begin
+  repeatTimer.start;
+  maxTime := gaussRangeInt(XmaxTime1, XmaxTime2);
+  reactionTime := gaussRangeInt(XreactionTime1, XreactionTime2);
+
+  repeat
+    if aBool() = true then
+      exit(true);
+    Wait(reactionTime);
+  until (repeatTimer.getTime > maxTime);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function xpChanged(): boolean;
+begin
+  writeln('checking for change in xp via tess');
+  result := (prevXP <> getXP);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function xpChanged2(XminWait: integer; XmaxWait: integer): boolean;
+begin
+  writeln('checking for pixel shift xp change2 in searchbox1 of bounds: ', searchBox1);
+  result := (getPixelShift(searchBox1, randomrange(XminWait, XmaxWait)) > 0);
+  writeln('xpChanged2 is currently: ', result);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function xpChangedWildy(): boolean;
+begin
+  writeln('checking for pixel shift xp change Wildy');
+  result := (getPixelShift(searchBox1, randomrange(3050, 3051)) > 0);
+  writeln('xpChangedWildy is currently: ', result);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function shouldWeTele(): boolean;
+var
+  ourHP: integer;
+  hpTPA: TPointArray;
+begin
+
+  if FindColorsTolerance(hpTPA, 2441977, healthBox, 15, colorSetting(2, 0.31, 1.31)) then
+    exit(false);
+
+  //result := findColorTolerance(x, y, 1249291, aBox, 5, colorSetting(2, 1.05, 3.34));
+  //15, colorSetting(2, 0.31, 1.31)
+
+
+  ourHP := actionBar.getHpPercent();
+  //writeLn('Checking hp, it''s at: ', ourHP);
+
+  if (ourHP < 100) then
+    exit(true);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function geTextIsOpen(): boolean;
+begin
+  result := chooseOption.optionsExist(['rand', 'xhan']);
+end;
+
+function freedomDTMIsOpen(): boolean;
+begin
+  result := findDTM(freedomDTM, x, y, mainscreen.getBounds);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function teleAway(): boolean;
+var
+  failTimer: TTimeMarker;
+  p: TPoint;
+begin
+  if weTeleported then
+    exit;
+
+  saveScreenshot('C:\Simba\teleportPics\'+ timeRunning() + '.png');
+
+  if not gameTabs.openTab(TAB_EQUIPMENT) then
+    scriptTerminator('failed to open equipment tab');
+  if not findDTM(rowDTM, x, y, tabBackpack.getBounds) then
+    scriptTerminator('failed to find rowDTM in equipment tab, terminating');
+
+  {
+  moveMouse(point(x, y));
+  wait(gaussRangeInt(150, 350));
+  fastClick(mouse_Right);
+  }
+
+  wait(gaussRangeInt(150, 350));
+  if not boolBeforeTime(,,,, @geTextIsOpen) then
+    scriptTerminator('failed to get ge text after right clicking rowDTM, terminating') else
+    writeln('succesfully found ge text after right clicking rowDTM');
+  chooseOption.select(['rand', 'xhan'], 1250);
+
+  if ((actionBar.getHPPercent < 100) and (actionBar.getAbilityCooldown(2) = 100)) then
+  begin      //freedom ability
+    MoveMouse(actionBar.getSlotBox(freedomSlot).getmiddle);
+    wait(gaussrangeint(200, 450));
+    fastClick(mouse_Left);
+    if randomrange(1, 100) < 50 then
+      wait(gaussrangeint(200, 450));
+  end;
+  if RandomRange(1, 100) < 40 then
+    wait(gaussRangeInt(150, 325));
+  mouseOffClient(OFF_CLIENT_RIGHT);
+
+  if boolBeforeTime(,, 1850, 2450, @freedomDTMIsOpen) then
+  begin
+    writeln('found freedom...so we failed to teleport, teleporting again.');
+    if not findDTM(rowDTM, x, y, tabBackpack.getBounds) then
+      scriptTerminator('2failed to find rowDTM in equipment tab, terminating2');
+    moveMouse(point(x, y));
+    wait(gaussRangeInt(150, 350));
+    fastClick(mouse_Right);
+    wait(gaussRangeInt(150, 350));
+    if not boolBeforeTime(,,,, @geTextIsOpen) then
+      scriptTerminator('2failed to get ge text after right clicking rowDTM, terminating2') else
+      writeln('2succesfully found ge text after right clicking rowDTM2');
+    chooseOption.select(['rand', 'xhan'], 1250);
+  end else
+    writeln('freeDTMIsOpen never became true, guess we teleported succesfully');
+
+  {
+  moveMouse(actionBar.getSlotBox(wealthSlot).getmiddle);
+  wait(gaussrangeint(200, 450));
+  if randomrange(1, 100) < 50 then
+    wait(gaussrangeint(200, 450));
+  fastClick(mouse_Left);
+  if randomrange(1, 100) < 50 then
+    wait(gaussrangeint(200, 450));
+  //typeSend('0', false);         //NO ring of wealth spam tele
+  }
+  failTimer.start;
+  repeat
+    wait(gaussRangeInt(100, 150));
+
+    if ((minimap.findSymbol(p, MM_SYMBOL_TRANSPORTATION, minimap.getBounds)) and (failtimer.getTime > gaussRangeInt(650, 2450))) then
+    begin
+      writeln('bank found. teleported away');
+      break;
+    end;
+
+  until (failTimer.getTime > 15000);
+  if (failTimer.getTime > 15000) then
+    scriptTerminator('took longer than 15000 to find rest spot');
+
+  weTeleported := true;
+  weShouldTeleport := false;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure teleCheck();
+begin                //still thinking on what to do with the teleaway boolean. (what to set true to do w/e)
+  //writeln('we''ve ran for: ', mainloopTimer.getTime/60000, ' minutes');
+  //writeln('we''ve breaked for: ', totalBreakTime/60000, ' minutes');
+  if (shouldWeTele()) then
+    teleAway();
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function boolBeforeTimeWildy(XreactionTime1: integer = 200; XreactionTime2: integer = 350; XmaxTime1: integer = 5400; XmaxTime2: integer = 6600; aBool: function: boolean): boolean;
+var
+  repeatTimer: TTimeMarker;
+  maxTime, reactionTime: integer;
+begin
+  repeatTimer.start;
+  maxTime := gaussRangeInt(XmaxTime1, XmaxTime2);
+  reactionTime := gaussRangeInt(XreactionTime1, XreactionTime2);
+
+  repeat
+    if aBool() = true then
+      exit(true);
+    teleCheck;
+    if weTeleported then
+      exit(false);
+    Wait(reactionTime);
+  until (repeatTimer.getTime > maxTime);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function redAroundMouse(): boolean;
+var
+  redTPA: TPointArray;
+  aBox: Tbox;
+begin
+  GetMousePos(x, y);
+  aBox.setBounds(x - 15, y - 15, x + 15, y + 15);
+
+  if not findColorsTolerance(redTPA, 395676, aBox, 0, colorSetting(2, 0, 0)) then
+    exit(false) else
+    exit(true);
+end;
+
+function getMapPoint(): boolean;
+begin
+  if findBitmapToleranceIn(mapBMP, mapPoint.X, mapPoint.Y, getClientBounds, 50) then
+    result := true else
+    result := false;
+end;
+
+function getLodePoint(): boolean;
+begin
+  if findBitmapToleranceIn(lodestoneBMP, lodestonePoint.x, lodestonePoint.y, getClientBounds, 50) then
+    result := true else
+    result := false;
+end;
+{
+function mapIsInCorrectTopRightSpot(): boolean;
+begin
+  if getMapPoint then
+    if mapPoint.y = 165 then
+      result := true;
+end;
+
+function lodestoneIsInCorrectTopLeftSpot(): boolean;
+begin
+  if getLodePoint then
+    if lodestonePoint.y = 167 then
+      result := true;
+end;
+}
+function orangeLinesAreGone(): boolean;
+var
+  orangeLinesTPA: TPointArray;
+begin
+  if not findColorsTolerance(orangeLinesTPA, 1605829, getClientBounds, 5, colorSetting(2, 0.01, 2.06)) then
+    exit(true);
+
+  writeln('orangeLinesTPA length is: ', length(orangeLinesTPA));
+
+  if length(orangeLinesTPA) < 50 then
+    exit(true);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure _makeMinimapBig();
+begin        // -16              +14
+  if not boolBeforeTimeWildy(,, 5450, 7250, @getLodePoint) then
+    scriptTerminator('11could not find lodestone icon? terminating1');
+
+  if not boolBeforeTimeWildy(,,,, @orangeLinesAreGone) then
+    scriptTerminator('orange lines are not gone111? terminating');
+
+  wait(gaussrangeint(350, 550));
+
+  getLodePoint;
+
+  writeln('lodestonePoint is: ', lodestonePoint);
+
+  {$IfDef SMART}smartimage.drawCircle(point(lodestonePoint.x, lodestonePoint.y), 3, true, clblue);{$EndIf}
+  mouse(point(lodestonePoint.x - 16 + random(6), lodestonePoint.y + 14 + random(17)), mouse_move); //bottom left of mm
+  wait(gaussRangeInt(200, 350));
+
+  dragMouse(point(-100 + random(100), 190 + random(190)));  //drag below 0 x and above 200 y
+  wait(gaussRangeInt(200, 350));
+              //+25              +17
+  if not boolBeforeTimeWildy(,, 5450, 7250, @getMapPoint) then
+    scriptTerminator('11could not find map icon? terminating11');
+
+  if not boolBeforeTimeWildy(,,,, @orangeLinesAreGone) then
+    scriptTerminator('orange lines are not gone after moving lodestonePoint to make map big? terminating');
+
+  wait(gaussrangeint(350, 550));
+
+  getMapPoint;
+
+  {$IfDef SMART}smartimage.drawCircle(point(mapPoint.x, mapPoint.y), 3, true, clgreen);{$EndIf}
+  writeln('mapPoint is: ', mapPoint);        //165
+  mouse(point(mapPoint.x + 25 + random(6), mapPoint.y + 17 + random(5)), mouse_move); //bottom right of mm
+  wait(gaussRangeInt(200, 350));
+
+  dragMouse(point(579 + random(198), 373 + random(202))); //bottom right of ms
+  wait(gaussRangeInt(200, 350));
+{
+  mouse(point(718 + random(30), 5 + random(5)), mouse_move);
+  if randomrange(1, 100) < 90 then
+    wait(gaussRangeInt(200, 350));
+  dragMouse(point(66 + random(65), 6 + random(10)));
+
+  mouse(point(213 + random(7), 189 + random(6)), mouse_move);
+  if randomrange(1, 100) < 90 then
+    wait(gaussRangeInt(200, 350));
+  dragMouse(point(560 + random(35), 370 + random(30)));
+  wait(gaussrangeint(300, 450));
+}
+end;
+
+procedure makeMinimapBig();
+begin
+
+  if conversationBox.isOpen then
+  begin
+    moveMouse(point(mainscreen.getCenterPoint.x + randomrange(-20 , 20), mainScreen.getCenterPoint.y + randomrange(-20, 20) ));
+    wait(gaussRangeInt(450, 750));
+    if not isMouseOverText(['arves', 'urse'], 150, true) then
+      fastClick(mouse_Left)
+    else
+    begin
+      fastClick(mouse_right);
+      chooseOption.select(['alk', 'here'], 1250, false);
+    end;
+  end;
+
+  failtimer.start;
+  repeat
+    _makeMinimapBig;
+    wait(gaussrangeint(350, 600));
+    getLodePoint;
+    getMapPoint;
+
+    writeln('lodestonePoint.x is: ', lodestonePoint.x);
+    writeln('mapPoint.x is: ', mapPoint.x);
+    if ((lodestoneIconXNumbersBig.isInArray(lodestonePoint.x)) and (mapIconXNumbersBig.isInArray(mapPoint.x))) then
+      break;
+
+    if failTimer.getTime > 25000 then
+      scriptTerminator('failed to make minimap big within 25 seconds') else
+      wait(gaussRangeInt(1200, 3600));
+  until false; //original cords http://i.imgur.com/rXdEJy9.png
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure _makeMinimapSmall();
+begin
+  //mouse(point(569 + random(5), 348 + random(15)), mouse_move); //bottom right of ms
+                         //+24                          //+20
+  if not boolBeforeTimeWildy(,, 5450, 7250, @getMapPoint) then
+    scriptTerminator('22could not find map icon? terminating22');
+
+  if not boolBeforeTimeWildy(,,,, @orangeLinesAreGone) then
+    scriptTerminator('orange lines are not gone222? terminating');
+
+  wait(gaussrangeint(350, 550));
+
+  getMapPoint;
+
+  {$IfDef SMART}smartimage.drawCircle(point(mapPoint.x, mapPoint.y), 3, true, clgreen);{$EndIf}
+  writeln('map point is: ', mapPoint);
+  if (not ((mapPoint.x = 767) and (mapPoint.y = 165))) then
+  begin
+    mouse(point(mapPoint.x + 24 + random(6), mapPoint.y + 20 + random(12)), mouse_move); //bottom right of ms
+    wait(gaussRangeInt(200, 350));
+
+    dragMouse(point(792 + random(6), 182 + random(11)));  //bottom right of mm
+    wait(gaussRangeInt(200, 350));
+  end;
+
+  if not boolBeforeTimeWildy(,, 5450, 7250, @getLodePoint) then
+    scriptTerminator('22could not find lodestone icon? terminating22');
+              //-17          +17
+  if not boolBeforeTimeWildy(,,,, @orangeLinesAreGone) then
+    scriptTerminator('orange lines are not gone after moving mapPoint to make map small? terminating');
+
+  wait(gaussrangeint(350, 550));
+  getLodePoint;
+
+  {$IfDef SMART}smartimage.drawCircle(point(lodestonePoint.x, lodestonePoint.y), 3, true, clblue);{$EndIf}
+  writeln('lodestonePoint is: ', lodestonePoint);
+  if (not ( (lodestoneIconXNumbersSmall.isInArray(lodestonePoint.x)) and (lodestoneIconYNumbersSmall.isInArray(lodestonePoint.y)) )) then
+  begin
+    mouse(point(lodestonePoint.x -17 + random(8), lodestonePoint.y + 17 + random(15)), mouse_move); //middle left of ms
+    wait(gaussRangeInt(200, 350));
+
+    dragMouse(point(577 + random(6), 181 + random(17)));  //bottom left of mm
+    wait(gaussRangeInt(200, 350));
+  end;
+
+  {
+  mouse(point(128 + random(314), 4 + random(7)), mouse_move);
+  if randomrange(1, 100) < 90 then
+    wait(gaussRangeInt(200, 350));
+  dragMouse(point(717 + random(76), 4 + random(8)));
+  wait(gaussRangeInt(250, 400));
+  mouse(point(226 + random(9), 180 + random(19)), mouse_move);
+  if randomrange(1, 100) < 90 then
+    wait(gaussRangeInt(400, 950));
+  dragMouse(point(585 + random(5), 188 + random(18)));
+  wait(gaussRangeInt(250, 400));
+  }
+end;
+
+procedure makeMinimapSmall();
+begin
+  failtimer.start;
+  repeat
+    _makeMinimapSmall;
+    mouseOffClient(OFF_CLIENT_RIGHT);
+    getLodePoint;
+    getMapPoint;
+
+    if ((lodestoneIconXNumbersSmall.isInArray(lodestonePoint.x)) and (mapIconXNumbersSmall.isInArray(mapPoint.x))) then
+      break;
+
+    writeln('lodestone point is: ', lodestonePoint);
+    writeln('map point is: ', mapPoint);
+
+    if failTimer.getTime > 15000 then
+      scriptTerminator('failed to make minimap small within 15 seconds') else
+      wait(gaussRangeInt(1200, 3600));
+  until false; //http://i.imgur.com/rXdEJy9.png
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure openGameTab(whichTab, maxTime: integer);
+begin
+  writeln('using openGameTab');
+  failtimer.start;
+  repeat
+    gameTabs.openTab(whichTab);
+    wait(gaussRangeInt(250, 350));
+    writeln('failtimer is: ', failtimer.getTime);
+  until ((failtimer.getTime > maxTime) or (gameTabs.isTabActive(whichTab)));
+  if failtimer.getTime > maxTime then
+    scriptTerminator('failed to openGameTab in time, terminating');
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function isLoading(): boolean;
+const
+  loadingColor = 1119762;
+  loadingTol = 2;
+  loadingHue = 15.31;
+  loadingMod = 6.42;
+var
+  loadingBox: Tbox;
+  loadingTPA: TPointArray;
+begin
+  loadingBox.setBounds(7, 6, 139, 30);
+  if not findColorsTolerance(loadingTPA, loadingColor, loadingBox, loadingTol, colorSetting(2, loadingHue, loadingMod)) then
+    exit(false);
+
+  writeln('length of loadingTPA is: ', length(loadingTPA));
+
+  if length(loadingTPA) > 1000 then
+    exit(true);
+end;
+
+function isNotLoading(): boolean;
+begin
+  result := not isLoading;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{
+By Janilabo
+}
+function StrContains(str, s: string): Boolean;
+begin
+  if ((str <> '') and (s <> '')) then
+    Result := (Pos(s, str) > 0)
+  else
+    Result := False;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{
+Outputs the number of milliseconds it took to complete the procedure *timesToDo* times
+}
+function getFunctionComputeTime(theFunction: procedure; timesToDo: integer): integer;
+var
+  counter, theTime: integer;
+  theTimer: TTimeMarker;
+begin
+  counter := 0;
+
+  theTimer.start;
+  repeat
+    inc(counter);
+    theFunction;
+  until counter = timesToDo;
+  result := theTimer.getTime;
+
+  writeln('The function ran for ', timesToDo, ' times in ', result/1000, ' seconds');
+  writeln('That''s an average of ', result / 1000 / timesToDo ,' per second!');
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{
+Converts ATPA into a TBoxArray, optionally with offsets that're adjusted to be on MS
+}
+function ATPAtoTBoxArray(theATPA: T2DPointArray; offset: integer = 0): TBoxArray;
+var
+  theBoxes: TBoxArray;
+  theBox: TBox;
+  p, x1, y1, x2, y2: integer;
+begin
+  for p := 0 to high(theATPA) do
+  begin
+    x1 := (theATPA[p].getBounds.x1 - offset);
+    if x1 < 0 then
+      x1 := 0;
+
+    y1 := theATPA[p].getBounds.y1 - offset;
+    if y1 < 0 then
+      y1 := 0;
+
+    x2 := theATPA[p].getBounds.x2 + offset;
+    if x2 > mainScreen.getBounds.x2 then
+      x2 := mainScreen.getBounds.x2;
+
+    y2 := theATPA[p].getBounds.y2 + offset;
+    if y2 > mainScreen.getBounds.y2 then
+      y2 := mainScreen.getBounds.y2;
+
+    theBoxes.addIndex([x1, y1, x2, y2], p);
+  end;
+
+  result := theBoxes;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{
+Adds TPA to ATPA index
+}
+procedure T2DPointArray.addIndex(const p : TPointArray; const index: integer);
+begin
+  insert(p, self, index);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{
+Parses ACA file for all the colors and outputs them as a TIntegerArray
+}
+function parseAcaFile(path: string): TIntegerArray;
+var
+  acaFile, j: integer;
+  str: string;
+  TSA: TStringArray;
+  tmpColz: TIntegerArray;
+begin
+  acaFile := openFile(path, true);
+  readFileString(acaFile, str, fileSize(acaFile));
+  TSA := MultiBetween(str, 'color="', '"/>');
+  tmpColz := [];
+
+  for j := 0 to high(TSA) do
+    insert(StrToInt(TSA[j]), tmpColz, length(tmpColz));
+
+  CloseFile(acaFile);
+  result := tmpColz;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{
+Outputs true if random 1 - 1000 is less than number inputted.
+If number inputted is 1000 then there's a 100% chance this occurs
+If number inputted is 500 then there's a 50% chance this occurs
+If number inputted is 0 then there's a 0% chance this occurs
+}
+function chance1000(numbah: integer): boolean;
+begin
+  result := randomrange(1, 1000) < numbah;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function bankscreenIsOpen(): boolean;
+begin
+  result := bankscreen.isOpen;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+function bankscreenIsNotOpen(): boolean;
+begin
+  result := not bankscreen.isOpen;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+procedure waitMsg(time: integer; message: string);
+begin
+  writeln(message);
+  wait(time);
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////

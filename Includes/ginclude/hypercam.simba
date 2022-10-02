@@ -1,0 +1,276 @@
+{Hypercam Recommended Setup:
+Screen Area Tab
+  Dimensions: 0, 0, 950, 700
+  Untoggle "Capture layered/transparent windows" //because why not
+
+Hot Keys Tab
+  Ctrl + Shift + F1 to Start/Stop Recording
+
+AVI File Tab
+  Untoggle "Add sequential number to the file name"
+  5 Frames per second
+  Video Compressor: Set to "Full Frames (Uncompressed)"
+  Toggle on "Limit screen capture to.." //Didnt seem to affect quality much, reduced file size by ~30%
+}
+
+program new;
+{$DEFINE SMART}   // because ginclude needs it
+{$I SRL-6/SRL.simba}
+{$I SPS/lib/SPS-RS3.Simba}
+{$I ginclude/master.simba}
+{$loadlib bothelper.dll}
+
+const
+  //MAKE SURE TO SET HYPERCAM TO RECORD WITH F2 (HOTKEYS TAB)
+  theBotID = 4; //MAKE SURE TO SAVE SCRIPT SO THAT WINDOW TITLE GOES BACK TO NORMAL
+
+  windowName = 'HyperCam 2';
+  windowNameRecording = 'HyperCam - Recording';
+  pathToProgram = 'C:\Program Files (x86)\HyperCam 2\HyCam2.exe';
+  //reminder to self: run manual at home due to window name glitch
+
+  thisWindowName = 'Simba - hypercam';
+
+  minute = 60000;
+  hour = 3600000;
+
+  sessionTime = minute * 10;   //time before resetting recording
+var
+  oldGuy: TPoint;
+  dankTimer: TTimeMarker;
+
+procedure checkThisWindowsName();
+begin
+  if GetWindowHandle(thisWindowName) = 0 then
+  begin
+    writeln('windowName of: ', thisWindowName, ' wasnt found! Did you edit it & not save? Terminating');
+    TerminateScript;
+  end;
+end;
+
+procedure minimizeThisSimba();
+begin
+  MinimizeWindow(GetWindowHandle(thisWindowName));
+end;
+
+procedure maximizeThisSimba();
+begin
+  MaximizeWindow(GetWindowHandle(thisWindowName));
+end;
+
+function hypercamIsOpen(): boolean;
+begin
+  result := GetWindowHandle(windowName) <> 0;
+end;
+
+function hypercamIsRecording(): boolean;
+begin
+  result := GetWindowHandle(windowNameRecording) <> 0;
+end;
+
+function openHypercam(): boolean;
+begin
+  if ((not hypercamIsOpen) and (not hypercamIsRecording)) then
+  begin
+    if not RunClient(pathToProgram) then
+    begin
+      writeln('terminating because we failed to runClient with path: ', pathToProgram);
+      TerminateScript;
+    end else
+    begin
+      writeln('ran client succesfully, waiting until it''s opened');
+      if not boolBeforeTime(,,,, @hypercamIsOpen) then
+        scriptTerminator('failed to open hypercam in time? terminating');
+    end;
+  end else
+    writeln('hypercam was already open');
+
+  result := true;
+end;
+
+{
+function getHypercamPlayCoords(): tbox;
+//instantly deprecated
+begin
+  openHypercam; //just incase, doesn't hurt to check & open if not open.
+  MoveWindow(GetWindowHandle(windowName), Point(100, 100), oldGuy);
+
+  if hypercamIsOpen then
+    result := [136, 367, 161, 374];
+end;
+}
+
+procedure pressRecordingHotkeys();
+begin
+  KeyDown(VK_CONTROL);
+  KeyDown(VK_SHIFT);
+  PressKey(VK_F1);
+  KeyUp(VK_CONTROL);
+  KeyUp(VK_SHIFT);
+end;
+
+procedure startRecording();
+begin
+  writeln('starting to record');
+  openHypercam;
+  pressRecordingHotkeys;
+  if not boolBeforeTime(,,,, @hypercamIsRecording) then
+    scriptTerminator('failed to start recording, terminating script.');
+end;
+
+procedure stopRecording();
+begin
+  writeln('check if we should stop recording');
+  if not hypercamIsRecording then
+    exit;
+
+  writeln('okay we are recording, lets stop recording');
+  pressRecordingHotkeys;
+  if not boolBeforeTime(,,,, @hypercamIsOpen) then
+    scriptTerminator('failed to stop recording, terminating script.');
+end;
+
+function getSimbaPlayButton(): TPoint;
+var
+  playDTM, playBmp, x, y, w, h: integer;
+begin
+  writeln('getting simba play button');
+  GetClientDimensions(w, h);
+
+  //playDTM := DTMFromString('mWAAAAHicY2FgYIhkZGAIheI4IHYDitkBsS8DhB2/XoTBsogZjMM61RkkgWLImAkNgwAAXckGcQ==');
+  //playBmp := BitmapFromString(11, 15, 'meJx7/55SENdeiF+Bz7xCm+ooPAomXlwfvapRpdTr8pXLWBV4bK5sPr00fWu3VKnzgSOHMBXYrCuwWJubf2R64b5pUpXuS9evQlNgujrLYGW69vLkyN0dFUfmKNZ7N8/sRVagtyZde1Wq2opExSUxzhtLK47O024PS+suhyuQXhstuy5Wdk2c9Moom60lpcfmaHWE+jalwhVIbY0FIonNMZ6HmwpOzlZo9ELWDgSyB1LkDqZFX5qcfmK6RJVLx+yJaI5UPl2QdW9h9MFu8RLHucsWYXqz+O5Sn421UkXOy9esxBpQtnPSNYq8Vq9dg1UWCAAXu3Ne');
+  playBmp := BitmapFromString(7, 7, 'meJzTXpWqtiJRcUmM88bSiqPztNvD0rrLZdfFyq6Jk14ZZbO1pPTYHK2OUN+mVKmtsRKbYzwPNxWcnK3Q6AVU9v79e7mDadGXJqefmC5R5dIxe+J7MMi6tzD6YLd4iePcZYvew4DPxlqpIufla1a+RwIaRV6r1655jwoA/Y9Y8Q==');
+
+  FindBitmapToleranceIn(playBmp, x, y, 0, 0, w - 1, h - 1, 50);
+  //result := FindColor(x, y, 225849, 0, 0, w - 1, h - 1);
+
+  FreeBitmap(playBmp);
+  //FreeDTM(playDTM);
+
+  writeln(w, ', ', h);
+  writeln(x, ', ', y);
+
+  result := point(x, y);
+end;
+
+function getSimbaStopButton(): TPoint;
+var
+  stopBMP, x, y, w, h: integer;
+  playPoint: TPoint;
+  stopBox: TBox;
+begin
+  writeln('getting simba stop button');
+
+  GetClientDimensions(w, h);
+
+  stopBox.setBounds(0, 0, w - 1, h - 1);
+
+  stopBmp := BitmapFromString(8, 8, 'meJybvezLxHlf26d+re75Vtj8zctrwnswAAlO+VoDEvyeXvUdLg5T+T2t8ntM4Q+4OEQwvfIHUDAo8ydcvKD5G1A7UDA446dn4i+4eFrV91igYCZI0CEaIQ4R9Er85Rj9yyL4N1w8CKT9J1DQMvi3kR9CHACV2n6X');
+
+  findBitmapToleranceIn(stopBMP, x, y, stopBox, 50);
+
+  FreeBitmap(stopBMP);
+
+  writeln('x y is: ', x, ', ', y);
+
+  result := point(x, y);
+end;
+
+function aSimbaScriptCanBeRan(): boolean;
+begin
+  result := getSimbaPlayButton.x > 0;
+end;
+
+function aSimbaScriptCanBeStopped(): boolean;
+begin
+  result := getSimbaStopButton.x > 0;
+end;
+
+function playOtherSimba(): boolean;
+begin
+  if aSimbaScriptCanBeRan then
+  begin
+    writeln('A simba script can be ran!');
+    MoveMouse(getSimbaPlayButton.x, getSimbaPlayButton.y);
+    wait(100);
+    fastClick(mouse_Left);
+
+    if not boolBeforeTime(,,,, @aSimbaScriptCanBeStopped) then
+      scriptTerminator('simba script failed to start or some other error occured! terminating');
+  end else
+    scriptTerminator('a simba script could NOT be ran!! Terminating.');
+
+  result := not aSimbaScriptCanBeRan;
+end;
+
+procedure recordingSession(time: integer);
+begin
+  startRecording;
+
+  dankTimer.start;
+  repeat
+    wait(3000);
+    updateTime(theBotID);
+  until ((dankTimer.getTime > time) or (aSimbaScriptCanBeRan) or (not aSimbaScriptCanBeStopped));
+
+  stopRecording;
+end;
+
+procedure stuffToDoOnTerminate();
+begin
+  maximizeThisSimba;
+  stopRecording;
+end;
+
+begin
+  ClearDebug;
+
+  checkThisWindowsName;
+  AddOnTerminate('stuffToDoOnTerminate');
+
+  SetDesktopAsClient;
+
+  openHypercam;
+
+  minimizeThisSimba;
+  if not boolBeforeTime(,,,, @aSimbaScriptCanBeRan) then
+    scriptTerminator('failed to detect that a simba script can be ran in time, terminating.');
+
+  writeln('playing other simba is: ', playOtherSimba);
+  moveMouse(point(5,5));
+
+  repeat
+    recordingSession(sessionTime);
+  until ((aSimbaScriptCanBeRan) or (not aSimbaScriptCanBeStopped));
+
+  pushBotIsDeadBarbaric(theBotID);
+  writeln('aSimbaScriptCanBeRan is: ', aSimbaScriptCanBeRan);
+  writeln('aSimbaScriptCanBeStopped: ', aSimbaScriptCanBeStopped);
+
+
+
+   {
+  //writeln(GetWindowCaptionFromPid(488360));
+  //writeln(GetWindowHandle('Simba'));
+  //writeln(GetWindowCaptionFromPid(657968));
+
+
+  writeln(RunClient('C:\Program Files (x86)\HyCam2\HyCam2.exe'));
+  wait(500);
+  //MinimizeWindow(GetWindowHandle(windowName));
+  //RestoreWindow(GetWindowHandle(windowName));
+
+  MoveWindow(GetWindowHandle(windowName), Point(100, 100), oldGuy);
+  writeln('oldguy was: ', oldGuy);
+
+  wait(2000);
+
+  PressKey(113);
+  wait(5000);     }
+  //KillClient(GetWindowHandle(windowName));
+
+  //writeln(startRecording);
+ // writeln(stopRecording);
+
+  //writeln(aSimbaScriptCanBeRan);
+end.

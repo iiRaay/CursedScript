@@ -1,0 +1,69 @@
+program new;
+
+type
+  TEvaluator = record
+    expr:String;
+    pos:Int32;
+  end;
+
+function TEvaluator.Number(): Double;
+var
+  t:Int32;
+begin
+  t := self.pos;
+  while (self.pos <= length(self.expr)) and (self.expr[self.pos] in ['.','0'..'9']) do
+    Inc(self.pos);
+  Result := StrToFloatDef( Copy(self.expr, t, self.pos-t),0);
+end;
+
+function TEvaluator.Factor(): Double;
+var
+  left,right:Double;
+  op:Char;
+begin
+  left := self.Number();
+  while self.pos < length(self.expr) do
+  begin
+    op := self.expr[self.pos];
+    if not(op in ['/','*']) then
+      exit(left);
+    Inc(self.pos);
+    right := self.Number();
+    if op = '/' then
+      left := left / right
+    else
+      left := left * right;
+  end;
+  Result := left;
+end;
+
+function TEvaluator.Addition(): Double;
+var
+  left,right:Double;
+  op:Char;
+begin
+  left := self.Factor();
+  while self.pos < length(self.expr) do
+  begin
+    op := self.expr[self.pos];
+    if not(op in ['-','+']) then
+      exit(left);
+    Inc(self.pos);
+    right := self.Factor();
+    if op = '-' then
+      left := left - right
+    else
+      left := left + right;
+  end;
+  Result := left;
+end;
+
+function EvalExpr(expr:String): Double;
+var runner:TEvaluator;
+begin
+  runner.expr := Replace(expr,' ','', [rfReplaceAll]);
+  runner.pos  := 1;
+  result := runner.Addition();
+end;
+
+  //WriteLn(EvalExpr('10 - 2 * 4 / 2 + 7'));

@@ -1,0 +1,876 @@
+program creator;
+
+{$DEFINE SMART}
+{$i srl-6/srl.Simba}
+{$I SPS/lib/SPS-RS3.Simba}
+{$I ginclude/master.simba}
+
+var
+  unpinDTM: integer;
+  upgradeButtonTPA, xTPA: TPointArray;
+  upgradeButtonBox, xBox: TBox;
+  lumToVar1, lumToVar2, lumToVar3, lumToVar4, varToGE0, varToGE1, varToGE2: TSPSArea;
+
+const
+  name1 = 'MagicalProwessKillahz@gmail.com';
+  pass1 = 'AttackerFatigue169';
+  world1 = 8;
+
+  changingCombatSettings = true;
+  doMe = true;
+
+  weshouldaddOnTerminate = true;
+
+
+  upgradeButtonColor = 6152153;
+  upgradeButtonTol = 32;
+  upgradeButtonHue = 0.31;
+  upgradeButtonSat = 1.5;
+
+  checkMarkColor = 4566240;
+  checkMarkTol = 8;
+  checkMarkHue = 0.08;
+  checkMarkSat = 1.87;
+
+
+function isLoggedIn(): boolean; override; //also uses graphDTM to see if logged in.
+const
+  LOGOUT_BUTTON_COLOUR = 3446209;
+var
+  graphDTM: integer;
+begin
+  graphDTM := DTMFromString('mlwAAAHicY2dgYDBlYWDQg2JTKLaBYnVGCNYBYm0gVgJiLSDWA+LAiXEMOxwdwRjEBmGz7B0MpgGLGIyA5uLCjHgwFAAAPh8M1g==');
+  result := ((getColor(796, 3) = LOGOUT_BUTTON_COLOUR) or (findDTM(graphDTM, x, y, getClientBounds)));
+  FreeDTM(graphDTM);
+
+  if result and (not __areDynamicInterfacesSet) then
+    __setDynamicInterfaces();
+end;
+
+procedure loginProcedure();
+begin
+  if not isLoggedIn() then
+  begin
+    players[currentPlayer].login();
+    //waitForCompass;
+    writeln('done logging in');
+  end;
+end;
+
+procedure loginProcedure2();
+begin
+  if not isLoggedIn() then
+  begin             // If player isn't logged in then
+    players[currentPlayer].login();    // Log them in
+    waitForCompass;
+  end;
+
+  //if ((minimap.getAngleDegrees > 5) and (minimap.getAngleDegrees < 355)) then
+    begin
+      writeLn('Setting Compass');
+      minimap.clickCompass;
+      mainScreen.setAngle(MS_ANGLE_HIGH);
+      wait(randomrange(650, 1250));
+
+      if gameTabs.isTabActive(TAB_TASK) then
+        if findDTM(unpinDTM, x, y, tabBackpack.getBounds) then
+        begin
+          writeln('unpinDTM is: ', x, y);
+          writeln('clicking unpinDTM');
+          mouse(point(x, y), mouse_left);
+          wait(gaussRangeInt(400, 750));
+        end;
+
+      exitTreasure;
+      closePopup;
+      gameTabs.openTab(TAB_EQUIPMENT);
+    end;
+end;
+
+procedure declarePlayers();
+begin
+  setLength(players, 1);
+  with players[0] do
+  begin
+    loginName := name1;
+    password := pass1;
+    isActive := true;
+    isMember := false;
+    world := world1;
+  end;
+  currentPlayer := 0;
+end;
+
+procedure terminator();
+begin
+  FreeDTM(unpinDTM);
+end;
+
+procedure setupVariables();
+begin
+  lumToVar1.setup('lumToVar1', RUNESCAPE_SURFACE);
+  lumToVar2.setup('lumToVar2', RUNESCAPE_SURFACE);
+  lumToVar3.setup('lumToVar3', RUNESCAPE_SURFACE);
+  lumToVar4.setup('lumToVar4', RUNESCAPE_SURFACE);
+
+  varToGE0.setup('varToGE0', RUNESCAPE_SURFACE);
+  varToGE1.setup('varToGE1', RUNESCAPE_SURFACE);
+  varToGE2.setup('varToGE2', RUNESCAPE_SURFACE);
+
+  unpinDTM := DTMFromString('mggAAAHicY2NgYOBjZmDgB2IuZghbBIg5gTiYkYHBF4gDgTgciEOg/LsbpRjmBAUzFOkYMjhxczN48vAwLFm2kkESaBY2zIQDQwAArroJYA==');
+end;
+
+procedure foreplay();
+begin
+  clearDebug();
+  smartEnableDrawing := true;
+  declarePlayers();             // Set up your username/pass
+  smartShowConsole := false;
+  disableIPScreenshots := true;
+  disableSRLLog := true;
+  if weshouldaddOnTerminate then
+    addOnTerminate('terminator');
+  setupSRL();                   // Load the SRL include files
+  setupVariables();
+  loginProcedure();
+end;
+
+function areOptionsOpen(): boolean;
+begin
+  result := options.isOpen;
+end;
+
+function areOptionsNotOpen(): boolean;
+begin
+  result := not options.isOpen;
+end;
+
+function isOS(): boolean;
+var
+  aBox: Tbox;   //looks for a color in aBox, currently thats the ribbon box for block
+begin
+  aBox.setBounds(687, 222, 687, 222);
+  result := findColorTolerance(x, y, 1249291, aBox, 5, colorSetting(2, 1.05, 3.34));
+end;
+
+function upgradeButtonIsInCorrectSpot(): boolean;
+begin
+{
+  unmoved: 1, 136, 89, 160
+  moved: 4, 476, 87, 497
+}
+  upgradeButtonBox.setBounds(4, 456, 87, 497);
+
+  writeln('attempting to find upgradeButtonTPA in movedTo spot');
+  if not findColorsTolerance(upgradeButtonTPA, upgradeButtonColor, upgradeButtonBox, upgradeButtonTol, colorSetting(2, upgradeButtonHue, upgradeButtonSat)) then
+    exit(false);
+
+  if length(upgradeButtonTPA) > 250 then
+  begin
+    writeln('found button in the movedTo spot');
+    exit(true);
+  end else
+    writeln('did not find button in the movedTo spot');
+end;
+
+function moveUpgradeButton(): boolean;
+begin
+  if upgradeButtonIsInCorrectSpot then
+    exit(true);
+
+  writeln('attempting to find upgradeButtonTPA in movedFrom spot');
+  upgradeButtonBox.setBounds(1, 136, 89, 160);
+  if not findColorsTolerance(upgradeButtonTPA, upgradeButtonColor, upgradeButtonBox, upgradeButtonTol, colorSetting(2, upgradeButtonHue, upgradeButtonSat)) then
+    exit(false);
+
+  if length(upgradeButtonTPA) > 250 then
+    writeln('found upgrade button TPA in movedFrom spot') else
+  begin
+    writeln('did not find upgradeButtonTPa in movedFrom spot (and already checked movedTo spot), exitting false');
+    exit(false);
+  end;
+
+  moveMouse(upgradeButtonTPA.getMiddle);
+  dragMouse(point(41, 482));
+  mouseOffClient(OFF_CLIENT_RIGHT);
+
+  if upgradeButtonIsInCorrectSpot then
+    exit(true) else
+    writeln('failed to see upgrade button in moveTo spot after trying to move it');
+end;
+
+function pressEscape(): boolean;
+var
+  failCount: integer;
+begin
+  failCount := 0;
+
+  repeat
+    writeln('pressing escape try #: ', failCount + 1);
+    typeByte(VK_ESCAPE);
+
+    {
+    afailtimer.start;
+    crepeat
+      oif options.isOpen then
+        wexit(true);
+      wait(gaussRangeInt(150, 350));
+    until failtimer.getTime > RandomRange(3050, 4850);
+    }
+    if boolBeforeTime(150, 350, 3050, 4850, @areOptionsOpen) then
+      exit(true);
+
+    Inc(failCount);
+
+  until failCount >= 4;
+end;
+
+function chooseOldSchool(): boolean;
+var
+  failCount: integer;
+  optionsBox, quickLoadBox, oldSchoolBox: tbox;
+begin
+  if isOS then
+    exit(true);
+
+  failCount := 0;
+
+  optionsBox := options.getBounds;
+  writeln('optionsBox coords are: ', optionsBox);
+
+  quickLoadBox.setBounds(optionsbox.X1 + 12, optionsbox.Y1 + 229, optionsbox.X2 - 8, optionsbox.Y2 - 130); //312, 324, 491, 339
+  oldSchoolBox.setBounds(optionsbox.X1 + 11, optionsbox.Y1 + 311, optionsbox.X2 - 26, optionsbox.Y2 - 52); //311, 406, 473, 417
+
+  repeat
+    writeln('choosing old school attempt #: ', failCount + 1);
+
+    mouse(quickLoadBox.getGaussPoint, mouse_Left);
+    Wait(gaussRangeInt(150, 350));
+    mouse(oldSchoolBox.getGaussPoint, mouse_Left);
+    Wait(gaussRangeInt(150, 350));
+
+    if failCount = 0 then
+    begin
+      writeln('first try so not waiting a while');
+      if boolBeforeTime(150, 350, 350, 950, @isOS) then
+        exit(true);
+    end else
+    begin
+      if boolBeforeTime(150, 350, 3050, 4850, @isOS) then
+        exit(true);
+    end;
+
+    Inc(failCount);
+
+  until failCount >= 5;
+end;
+
+function openGameSettings(): boolean;
+var
+  failCount: integer;
+begin
+  failCount := 0;
+
+  repeat
+    writeln('opening game settings try #: ', failCount + 1);
+
+    options.selectOption(['Game Settings']);
+
+    if boolBeforeTime(150, 350, 3050, 4850, @areOptionsNotOpen) then
+      exit(true);
+
+    inc(failCount);
+    mouseOffClient(OFF_CLIENT_RIGHT);
+
+  until failCount >= 4;
+
+end;
+
+function clickCheckBox(x1, y1, x2, y2: integer; toBeRemoved: boolean): boolean;
+var
+  checkMarkBox: Tbox;
+  checkMarkTPA: TPointArray;
+begin
+  checkMarkBox.setBounds(x1, y1, x2, y2);
+
+  writeln('looking for checkmark being ', not toBeRemoved, ' in this box: ', checkMarkBox);
+  if (findColorsTolerance(checkMarkTPA, checkMarkColor, checkMarkBox, checkMarkTol, colorSetting(2, checkMarkHue, checkMarkSat)) = (not toBeRemoved)) then
+  begin
+    exit(true);
+  end;
+
+  mouse(checkMarkBox.getGaussPoint, mouse_Left);
+  mouseOffClient(OFF_CLIENT_RIGHT);
+  wait(gaussRangeInt(650, 950));
+
+  writeln('looking for checkmark being ', not toBeRemoved, ' in this box: ', checkMarkBox);
+  if (findColorsTolerance(checkMarkTPA, checkMarkColor, checkMarkBox, checkMarkTol, colorSetting(2, checkMarkHue, checkMarkSat)) = (not toBeRemoved)) then
+    exit(true);
+
+  writeln('checkMarkTPA is: ', checkMarkTPA);
+end;
+
+function clickOval(x1, y1, x2, y2: integer): boolean;
+var
+  ovalBox: Tbox;
+  ovalTPA: TPointArray;
+const
+  ovalColor = 5160936;
+  ovalColorTol = 21;
+  ovalColorHue = 0.02;
+  ovalColorSat = 0.81;
+begin
+  ovalBox.setBounds(x1, y1, x2, y2);
+
+  if findColorsTolerance(ovalTPA, ovalColor, ovalBox, ovalColorTol, colorSetting(2, ovalColorHue, ovalColorSat)) then
+    exit(true);
+
+  mouse(ovalBox.getGaussPoint, mouse_Left);
+  wait(gaussRangeInt(350, 950));
+
+  if findColorsTolerance(ovalTPA, ovalColor, ovalBox, ovalColorTol, colorSetting(2, ovalColorHue, ovalColorSat)) then
+    exit(true);
+end;
+
+function clickTabHorizontal(x1, y1, x2, y2: integer): boolean;
+var
+  interfaceBox: Tbox;
+  interfaceTPA: TPointArray;
+const
+  theColor = 6049839;
+  theColorTol = 6;
+  theColorHue = 0.13;
+  theColorSat = 0.95;
+begin
+  interfaceBox.setBounds(x1, y1, x2, y2);
+
+  findColorsTolerance(interfaceTPA, theColor, interfaceBox, theColorTol, colorSetting(2, theColorHue, theColorSat));
+  if length(interfaceTPA) > 100 then
+    exit(true);
+
+  mouse(interfaceBox.getGaussPoint, mouse_Left);
+  mouseOffClient(OFF_CLIENT_RIGHT);
+
+  wait(gaussRangeInt(1850, 3050));
+
+  findColorsTolerance(interfaceTPA, theColor, interfaceBox, theColorTol, colorSetting(2, theColorHue, theColorSat));
+  if length(interfaceTPA) > 100 then
+    exit(true);
+end;
+
+function clickTabVertical(x1, y1, x2, y2: integer): boolean;
+var
+  settingsBox: Tbox;
+  theTPA: TPointArray;
+const
+  theColor = 4273958;
+  theColorTol = 1;
+  theColorHue = 0.43;
+  theColorSat = 1.41;
+begin
+  settingsBox.setBounds(x1, y1, x2, y2);
+
+  findColorsTolerance(theTPA, theColor, settingsBox, theColorTol, colorSetting(2, theColorHue, theColorSat));
+  if length(theTPA) > 100 then
+    exit(true);
+
+  mouse(settingsBox.getGaussPoint, mouse_Left);
+  mouseOffClient(OFF_CLIENT_RIGHT);
+  wait(gaussRangeInt(1850, 3050));
+
+  findColorsTolerance(theTPA, theColor, settingsBox, theColorTol, colorSetting(2, theColorHue, theColorSat));
+  if length(theTPA) > 100 then
+    exit(true);
+end;
+
+function dragTransparency(): boolean;
+var
+  aTPA: TPointArray;
+  aBox: TBox;
+const
+  color1 = 3386332; //color of movable icon
+  color1Tol = 11;
+  color1Hue = 0.16;
+  color1Sat = 2.25;
+  color2 = 1;
+begin
+  aBox.setBounds(211, 240, 219, 258);  //leftside of slider
+
+  findColorsTolerance(aTPA, color1, aBox, color1Tol, colorSetting(2, color1Hue, color1Sat));
+  if length(aTPA) > 25 then
+    exit(true);
+
+  aBox.setBounds(207, 235, 490, 262); //whole slider
+
+  if not findColorsTolerance(aTPA, color1, aBox, color1Tol, colorSetting(2, color1Hue, color1Sat))then
+    exit(false);
+
+  mouse(aTPA.getMiddle);
+  dragMouse(point(210 + random(2), 246 + random(2)));
+
+  aBox.setBounds(211, 240, 219, 258);  //leftside of slider
+  mouseOffClient(OFF_CLIENT_RIGHT);
+
+  findColorsTolerance(aTPA, color1, aBox, color1Tol, colorSetting(2, color1Hue, color1Sat));
+  if length(aTPA) > 25 then
+    exit(true);
+end;
+
+//checks for the 'f' instead of 'n' by looking at a small box above where the 'n' is for the text's colors
+function isClockOff(): boolean;
+var
+  aBox: Tbox;
+begin
+  aBox.setBounds(126, 429, 133, 431);
+  result := findColorTolerance(x, y, 13680540, aBox, 7, colorSetting(2, 0.04, 1.29));
+end;
+
+function turnOffClock(): boolean;
+begin
+  if isClockOff then
+    exit(true);
+
+  mouse(point(47 + random(228), 429 + random(11)), mouse_left);
+  wait(gaussRangeInt(100, 250));
+  mouse(point(49 + random(211), 450 + random(7)), mouse_left);
+  wait(gaussRangeInt(100, 250));
+  mouseOffClient(OFF_CLIENT_RIGHT);
+
+  if isClockOff then
+    exit(true);
+end;
+
+function isXthere(): boolean;
+begin
+  xBox.setBounds(766, 29, 777, 40);
+  findColorsTolerance(xTPA, 2465265, xBox, 11, colorSetting(2, 0.10, 0.94)); //yellow colors in the x at the top right of settings menu
+
+  if length(xTPA) > 10 then
+    exit(true);
+
+  writeln('x not found');
+end;
+
+function closeSettings(): boolean;
+var
+  failCount: integer;
+begin
+  failCount := 0;
+  repeat
+    writeln('closing settings try #: ', failCount + 1);
+
+    if isXthere then
+      mouse(xTPA.getMiddle, mouse_left);
+
+    mouseOffClient(OFF_CLIENT_RIGHT);
+
+    if not isXthere then
+      exit(true);
+
+    Inc(failCount);
+  until failCount >= 2;
+end;
+
+function hardCodedSettings(): boolean;
+begin
+  writeln('moving to gameplay settings tab');
+  if not clickTabVertical(36, 160, 141, 193) then
+    exit(false);
+
+  writeln('unticking guidance system hints');
+  if not clickCheckBox(750, 196, 763, 209, true) then
+    exit(false);
+
+  writeln('moving to loot settings');
+  if not clickTabVertical(38, 216, 140, 247) then
+    exit(false);
+
+  writeln('unticking use loot inventory');
+  if not clickCheckBox(444, 194, 457, 207, true) then
+    exit(false);
+
+  writeln('moving to Aid settings');
+  if not clickTabVertical(38, 531, 143, 547) then
+    exit(false);
+
+  writeln('setting all aid to off');
+  if not clickOval(351, 199, 361, 207) then
+    exit(false);
+  if not clickOval(353, 248, 360, 256) then
+    exit(false);
+  if not clickOval(352, 296, 361, 303) then
+    exit(false);
+  if not clickOval(353, 343, 360, 348) then
+    exit(false);
+  if not clickOval(658, 202, 666, 209) then
+    exit(false);
+  if not clickOval(658, 247, 666, 255) then
+    exit(false);
+  if not clickOval(658, 295, 666, 301) then
+    exit(false);
+  writeln('done setting all aid to off');
+
+  writeln('moving to interface tab');
+  if not clickTabHorizontal(143, 118, 222, 128) then
+    if not clickTabHorizontal(143, 118, 222, 128) then
+      exit(false);
+
+  writeln('selecting slim headers');
+  if not clickCheckBox(265, 190, 275, 200, false) then
+    exit(false);
+
+  writeln('dragging transparency');
+  if not dragTransparency then
+    exit(false);
+
+  writeln('unticking task information window');
+  if not clickCheckBox(265, 359, 275, 370, true) then
+    exit(false);
+
+  writeln('unticking xp pop-ups');
+  if not clickCheckBox(265, 382, 275, 393, true) then
+    exit(false);
+
+  writeln('turning off clock');
+  if not turnOffClock then
+    if not turnOffClock then
+      exit(false);
+
+  if changingCombatSettings then
+  begin
+    writeln('moving to combat settings tab');
+    if not clickTabHorizontal(495, 118, 597, 128) then
+      if not clickTabHorizontal(495, 118, 597, 128) then
+        exit(false);
+
+    writeln('unticking attack, str, range, and magic');
+    if not clickCheckBox(556, 217, 567, 227, true) then
+      exit(false);
+    if not clickCheckBox(663, 217, 673, 227, true) then
+      exit(false);
+    if not clickCheckBox(556, 297, 567, 310, true) then
+      exit(false);
+    if not clickCheckBox(557, 360, 568, 370, true) then
+      exit(false);
+  end;
+
+  result := true;
+end;
+
+procedure doInterfacesAll();
+begin
+  wait(gaussRangeInt(2450, 4850));
+
+  if not pressEscape then
+    scriptTerminator('failed to press escape, terminating script.') else
+    writeln('succesfully pressed escape!');
+
+  if not chooseOldSchool then
+    scriptTerminator('failed to choose old school, terminating script.') else
+    writeln('succesfully chose old school!');
+
+  wait(gaussRangeInt(350, 1850));
+
+  if not moveUpgradeButton then
+    scriptTerminator('failed to move upgrade button, terminating script') else
+    writeln('moved upgrade button succesfully');
+
+  if not openGameSettings then
+    scriptTerminator('failed to open game settings.') else
+    writeln('succesfully opened game settings');
+
+  wait(gaussRangeInt(3050, 4850));
+
+  if not hardCodedSettings then
+    scriptTerminator('failed to do hard coded settings fully, terminating script.') else
+    writeln('succesfully completed all hard coded settings!');
+
+  if not closeSettings then
+    scriptTerminator('failed to close settings, terminating script.') else
+    writeln('succesfully closed settings');
+end;
+
+procedure doInterfacesMe();
+begin
+  mouse(point(441, 435), mouse_move);   //pms off
+  fastClick(mouse_left);
+
+  mouse(point(540, 433), mouse_move);   //my examine settings
+  wait(gaussrangeint(25, 150));
+  fastClick(mouse_left);
+
+  {
+  this is where you could enter a personal message
+  }
+
+  wait(gaussRangeInt(1850, 3050));
+  mouse(point(287, 305), mouse_left);   //open
+  wait(gaussRangeInt(150, 350));
+  mouse(point(223, 350), mouse_left);   //choose nobody
+  typeByte(VK_ESCAPE);                  //close
+  wait(gaussRangeInt(650, 950));
+
+  {set runemetrics options}
+  mouse(point(707, 256), mouse_left);   //open runemetrics
+  wait(gaussRangeInt(25, 150));
+  fastClick(mouse_left); //double click just incase
+
+  if not clickTabHorizontal(147, 123, 189, 128) then
+    writeln('failed to clickTabHorizontal for metrics');
+
+  if not clickCheckBox(346, 176, 354, 183, false) then
+    writeln('failed to tick box: show precise values');
+
+   if not clickCheckBox(344, 285, 357, 299, true) then
+    writeln('failed to untick box: lightweight mode');
+
+   if not closeSettings then
+     if not closeSettings then
+      writeln('failed to close settings X for runemetrics');
+
+  //make chatbox smaller
+  mouse(point(3, 383));
+  dragMouse(point(158, 512));
+
+  //drag action bar down
+  mouse(point(397, 317));
+  dragMouse(point(386, 424));
+
+  //drag runemetrics down left
+  mouse(point(527, 8));
+  dragMouse(point(16, 550));
+
+  //drag runemetrics down right
+  mouse(point(91, 595));
+  dragMouse(point(167, 588));
+
+  {drag worn equipment to chatbox}
+end;
+
+function openLodestoneScreen(): boolean;
+var
+  failCount: integer;
+begin
+  failCount := 0;
+
+  repeat
+    mouseCircle(minimap.button[MM_BUTTON_LODESTONE].center.x, minimap.button[MM_BUTTON_LODESTONE].center.y,
+                minimap.button[MM_BUTTON_LODESTONE].radius, MOUSE_MOVE);
+    fastClick(mouse_left);
+
+    if lodestoneScreen.isOpen(gaussRangeInt(14850, 16050)) then
+      exit(true);
+
+    Inc(failCount);
+  until failCount >= 3;
+
+  writeln('failed to open lodestonescreen after 3 tries');
+end;
+
+procedure walkToVarrockLode();
+begin
+  writeln('doing part 1 of the lumToVar walk');
+  lumToVar1.walkPath([Point(245, 164), Point(251, 108), Point(234, 48)], false);
+
+  writeln('doing part 2 of the lumToVar walk');
+  lumToVar2.walkPath([Point(203, 240), Point(204, 175), Point(183, 116), Point(184, 76)], false);
+
+  writeln('doing part 3 of the lumToVar walk');
+  lumToVar3.walkPath([Point(218, 246), Point(215, 189), Point(215, 123), Point(201, 59)], false);
+
+  writeln('doing part 4 of the lumToVar walk');
+  lumToVar4.walkPath([Point(304, 230), Point(268, 178), Point(235, 116), Point(212, 57)], false);
+end;
+
+function activateVarrockLodestone(): boolean;
+var
+  lodeTPA: TPointArray;
+  mainScreenPoint: TPoint;
+  mainScreenBox: Tbox;
+begin
+  if not minimap.findSymbol(p, MM_SYMBOL_LODESTONE, minimap.getBounds) then
+    exit(false);
+
+  mouse(point(p.x, p.y + (random(4))));
+  fastClick(mouse_Left);
+  minimap.waitPlayerMoving;
+  repeat
+    writeln('waiting until player aint animating');
+    wait(gaussRangeInt(250, 450));
+  until (not mainScreen.isPlayerAnimating);
+
+  wait(gaussRangeInt(1250, 2450));
+
+  if not minimap.findSymbol(p, MM_SYMBOL_LODESTONE, minimap.getBounds) then
+    exit(false);
+
+  mainScreenPoint := minimap.pointToMainscreen(point(p.X, p.Y + 12)); //317, 279, -->277, 250  317, 278 --> 390, 357
+  mainScreenBox.setBounds(mainScreenPoint.X - 50, mainScreenPoint.Y - 40, mainScreenPoint.X + 73, mainScreenPoint.Y + 79);
+  if not findColorsTolerance(lodeTPA, 5989737, mainScreenBox, 3, colorSetting(2, 0.55, 0.61)) then
+    exit(false);
+  //smartImage.drawBox(mainScreenBox, true, clblue);
+  //smartimage.drawCircle(mainScreenPoint, 3, true, clwhite);
+  //smartimage.debugTPA(lodeTPA, true);
+
+
+  //(var ix, iy: integer; col, tol: integer; colSettings: TColorSettings; sortFrom: TPoint; objWidth, objHeight, minCount: integer; mouseOverText: TStringArray; mouseAction: integer = MOUSE_LEFT): boolean; overload;
+  if (mainScreen.findObject(x, y, 5989737, 3, colorSetting(2, 0.55, 0.61), mainScreenBox.getGaussPoint, 5, 5, 5, ['ode', 'arro'], mouse_Left)) then
+    result := true else
+    result := false;
+
+  wait(gaussRangeInt(4850, 6050));
+end;
+
+function varrockLodeToGE(): boolean;
+begin
+  writeln('doing part 0 of the varLodeToGE walk');
+  varToGE0.walkPath([Point(203, 137)], false);
+
+  writeln('doing part 1 of the varLodeToGE walk');
+  varToGE1.walkPath([Point(238, 256), Point(236, 189), Point(236, 189), Point(225, 122), Point(188, 68), Point(140, 42)], false);
+
+  writeln('doing part 2 of the varLodeToGE walk');
+  varToGE2.walkPath([Point(234, 213), Point(202, 162), Point(202, 141)], false);
+
+  minimap.waitPlayerMoving;
+end;
+
+function clickTutor(): boolean;
+begin
+  result := mainScreen.findObject(x, y, 7429698, 12, colorSetting(2, 0.52, 0.90), mainscreen.getCenterPoint, 5, 5, 5, ['utor', 'exc'], mouse_left);
+  if (result) then
+    minimap.waitPlayerMoving;
+end;
+
+function open1available(): boolean;
+begin
+  result := conversationBox.findOption(['want the', 'asics', 'from']);
+end;
+
+function talkToTutor(): boolean;
+begin
+  if not conversationBox.isOpen then
+    exit(false);
+
+  conversationBox.continue(false, true, true);
+  conversationBox.continue(false, true, true);
+  if not boolBeforeTime(,,,, @open1available) then
+    exit(false);
+
+  conversationBox.selectOption(['want the', 'asics', 'from'], false);
+
+  failtimer.start;
+  repeat
+  conversationBox.continue(false, true, true);
+  until ((not conversationBox.isOpen) or (failtimer.getTime > 15000));
+  if failtimer.getTime > 15000 then
+    writeln('failed to go through all the conversation within 15 seconds');
+
+  if not conversationBox.isOpen then
+    exit(true);
+end;
+
+function doTutor(): boolean;
+var
+  failCount: integer;
+begin
+  failCount := 0;
+
+  repeat
+    if clickTutor then
+      if talkToTutor then
+      begin
+        writeln('tutor completed succesfully');
+        result := true;
+        break;
+      end;
+
+
+    inc(failCount);
+  until failCount >= 5;
+end;
+
+function lumbridgeToVarrockLode(): boolean;
+begin
+  walkToVarrockLode;
+
+  if not activateVarrockLodestone then
+    if not activateVarrockLodestone then
+      exit(false);
+
+  result := true;
+end;
+
+function findMinimapOKandClick(): boolean;
+var
+  mapPopupTPA: TPointArray;
+  mapPopupBox: TBox;
+begin
+  mapPopupBox.setBounds(543, 365, 637, 382);
+  if not findColorsTolerance(mapPopupTPA, 3579352, mapPopupBox, 23, colorSetting(2, 0.12, 1.31)) then
+    exit(False);
+
+  if length(mapPopupTPA) > 100 then
+  begin
+    result := true;
+    mouse(mapPopupTPA.getMiddle);
+    fastClick(mouse_Left);
+  end;
+end;
+
+procedure walkToGE();
+begin
+  if not openLodestoneScreen then
+    scriptTerminator('failed to open lodestone screen');
+
+  if not lodestoneScreen._isLocked(LOCATION_VARROCK) then
+  begin
+    writeln('teleporting to VARROCK');
+    lodestoneScreen.teleportTo(LOCATION_VARROCK, true);
+  end else
+  begin
+    writeln('teleporting to LUMBRIDGE');
+    lodestoneScreen.teleportTo(LOCATION_LUMBRIDGE, true);
+    findMinimapOKandClick;
+    if not lumbridgeToVarrockLode then
+      scriptTerminator('failed to walk to varrock lodestone');
+  end;
+
+  writeln('mouse zoom');
+  mainscreen.setZoom(true);
+  writeln('done setting mouse zoom');
+
+  varrockLodeToGE;
+end;
+
+procedure setupAccount();
+begin
+  foreplay;
+
+  doInterfacesAll;
+
+  if doMe then
+    doInterfacesMe;
+
+  loginProcedure2;
+
+  walkToGE;
+
+  varrockLodeToGE;
+
+  if not doTutor then
+    scriptTerminator('failed to do tutor? terminating');
+end;
+
+procedure test();
+begin
+  foreplay;
+  writeln(findMinimapOKandClick);
+ end;
+
+begin
+  setupAccount();
+  //test;
+
+  //writeln(isOS);
+end.

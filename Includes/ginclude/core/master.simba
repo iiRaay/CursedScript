@@ -1,0 +1,6 @@
+{$include_once globals.simba}
+{$include_once base.simba}
+{$include_once banks.simba}
+{$include_once srloverrides.simba}
+{$include_once database.simba}
+{$include_once init.simba}

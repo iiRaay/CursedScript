@@ -1,0 +1,709 @@
+program scriptTemplate;
+
+{$DEFINE SMART}              // Always have this to load smart
+{$I SRL-6/SRL.simba}         // To load the SRL include files
+{$I SPS/lib/SPS-RS3.Simba}   // To load the SPS include files
+
+var
+  failtimer, failtimer2, waitTimer, energyTimer, mainloopTimer: TTimeMarker;
+  i, x, y, prevXP, totalBreakTime, leapingTroutDTM, leapingSalmonDTM, leapingSturgeonDTM, closeDTM, freedomDTM, rowDTM, freedomSlot:  integer;
+  cursedWispRift, cursedWispLocation, gotovarrockwest,
+  lodeToWisp1, lodeToWisp2: TSPSArea;
+  cursedWispTPA, cursedWispTPA1, cursedWispTPA2, riftTPA, siphonTPA, fishSpotTPA, rockTPA: TPointArray;
+  playerBox, playerBox1, riftBox, siphonBoundsBox, wildyLevelBox, aBox: TBox;
+  cursedWispATPA, riftATPA, siphonATPA, fishSpotATPA: T2DPointArray;
+  riftOption, riftText, wispText:  TStringArray;
+  p: TPoint;
+  weTeleported, weShouldTeleport, depositEarly: boolean;
+
+{$I ginclude/master.simba}
+
+
+const
+  fishSpotColor = 12364699;
+  fishSpotTol = 25;
+  fishSpotHue = 1.1;
+  fishSpotSat = 0.68;
+
+  rockColor = 4672078;
+  rockTol = 6;
+  rockHue = 1.59;
+  rockSat = 0.24;
+
+  language = 'english';
+
+  //name1 = 'superm4n57@outlook.com';
+  //pass1 = 'nc8xaso2asd';
+  //name1 = 'goodg8y103@outlook.com';
+  //pass1 = 'sdaklnj2kdad';
+  name1 = 'isthatwutuj@outlook.com';
+  pass1 = 'shortpassword3';
+  world1 = 117;
+  weShouldExitToLobby = false;
+  minRiftLength = 5000;
+
+  //out of 100
+  chanceOfMinibreaksInbetweenSiphons = 80;
+  chanceOfBreaksInbetweenSiphons = 1;
+  chanceOfBreaksBeforeDepositing = 2;
+  chanceOfMinibreaksAfterDepositing = 50;
+  chanceOfBreaksAfterDepositing = 2;
+
+  siphonColor = 13665320;
+  siphonTol   = 25;
+  siphonHue   = 0.07;
+  siphonSat   = 0.75;
+
+procedure declarePlayers();
+begin
+  setLength(players, 1);
+  with players[0] do
+  begin
+    loginName := name1;
+    password := pass1;
+    isActive := true;
+    isMember := true;
+    world := world1;
+  end;
+  currentPlayer := 0;
+end;
+
+function TRSMinimap.waitFlag1(dist: integer = 0): boolean;
+var
+  m, t : LongWord;
+  d1, d2: integer;
+  p, c: TPoint;
+begin
+  result := false;
+  m := getSystemTime();
+  t := (m + 20000);
+
+  repeat
+    if (not self.isFlagPresent(p)) then
+    begin
+      result := true;
+      break;
+    end;
+
+    c := self.getCenterPoint();
+    d1 := distance(p.x, p.y, c.x, c.y);
+
+    if (d1 <= dist) then
+    begin
+      result := true;
+      break;
+    end;
+
+    teleCheck;
+    if weTeleported then
+      exit;
+
+    if (d1 > (dist + 12)) then
+      wait(450 + random(70))
+    else
+      wait(50 + random(50));
+
+    if (getColor(6, 56) <> 13092807) then // border of the loading message
+      if (getSystemTime() - m > 5000) then
+      begin
+        if (d1 = d2) then
+          break();
+
+
+        d2 := d1;
+        m := getSystemTime();
+      end;
+
+    {
+    if (SRL_Events[EVENT_ANTIBAN] <> nil) then
+      SRL_Events[EVENT_ANTIBAN]();
+    }
+
+  until (getSystemTime() > t);
+end;
+
+function TSPSArea.getPlayerPos1(tolerance: integer = 300; accuracy: extended = 0.4): TPoint;
+var
+  foundMatches, wid, hei, t: integer;
+  bmp: TMufasaBitmap;
+  map: T3DIntegerArray;
+  p: TPoint;
+  searches, a: extended;
+begin
+  result := [-1, -1];
+
+  if (not isLoggedIn()) then
+    exit();
+
+  if (not self.isSetup) then
+  begin
+    print('Unable to get players postion, sps isn''t setup', TDebug.ERROR);
+    exit();
+  end;
+
+  t := getSystemTime();
+  a := minimap.getAngleDegrees();
+
+  if (inRange(a, 10.0, 350.0)) and (not spsAnyAngle) then
+  begin
+    print(self.getName()+'.getPlayerPos1(): Angle is at '+floatToStr(a)+', Setting angle to 0 degrees');
+    minimap.clickCompass();
+  //  mainScreen.setAngle(MS_ANGLE_HIGH);
+  end;
+
+  bmp := SPS_GatherMinimap(spsAnyAngle, a);
+
+  wid := bmp.getWidth();
+  hei := bmp.getHeight();
+
+  SPS_BitmapToMap(bmp, self._accuracy, map);
+
+  if (length(map) > 0) then
+  begin
+    foundMatches := SPS_FindMapInMap(p.x, p.y, self.__areaMap, map, tolerance);
+    searches := ((wid / self._accuracy) * (hei / self._accuracy));
+
+    if ((foundMatches / searches) > accuracy) then
+    begin
+      result.x := (p.x * self._accuracy + (wid div 2));
+      result.y := (p.y * self._accuracy + (wid div 2));
+    end else
+      print(self.getName()+'.getPlayerPos1(): Didn''t find enough matches accurately calc your postion', TDebug.WARNING);
+  end;
+
+  bmp.free();
+
+  print(self.getName()+'.getPlayerPos1(): result = ' + toStr(result) + ', took ' + intToStr(getSystemTime() - t) + ' ms');
+end;
+
+function TSPSArea.walkPath1(path: TPointArray; waitMoving: Boolean = False; shiftInterval: Integer = 500): boolean;
+var
+  p, lastPos, mmPoint: TPoint;
+  t, fails, h, l, i: integer;
+begin
+  result := false;;
+
+  h := high(path);
+  l := low(path);
+
+  t := (getSystemTime() + randomRange(15000, 20000));
+
+  repeat
+    if (not isLoggedIn()) then
+      exit(false);
+
+    p := self.getPlayerPos1();
+
+    for i := h downto l do
+      if (SPS_PosToMM(path[i], p, mmPoint)) then
+      begin
+        if (distance(minimap.getCenterPoint(), mmPoint) >= 10) then
+        begin
+          if (spsMultiMouse) then
+            multiClick(mmPoint, 25, 3)
+          else
+            mouse(mmPoint, MOUSE_LEFT);
+
+          if (minimap.isFlagPresent(2500 + random(500))) then
+            minimap.waitFlag1(10 + random(25));
+        end;
+
+        t := (getSystemTime() + randomRange(15000, 20000));
+
+        result := (i = h) or (distance(path[i], path[h]) < 10);
+
+        if (result) then
+          break(2)
+        else
+          break();
+
+      end;
+
+    if (p.x = lastPos.x) and (p.y = lastPos.y) then
+      inc(fails);
+
+    lastPos := p;
+
+  until (getSystemTime() > t) or (fails > 5);
+
+  if waitMoving then
+    if (minimap.isFlagPresent() or minimap.isPlayerMoving()) then
+      minimap.waitPlayerMoving(shiftInterval);
+
+  print(self.getName()+'.walkPath(): result = '+boolToStr(result));
+end;
+
+function TSPSArea.walkPath2(path: TPointArray; waitMoving: Boolean = False; shiftInterval: Integer = 500): boolean;
+var
+  p, lastPos, mmPoint: TPoint;
+  t, fails, h, l, i: integer;
+begin
+  result := false;;
+
+  h := high(path);
+  l := low(path);
+
+  t := (getSystemTime() + randomRange(15000, 20000));
+
+  repeat
+    if (not isLoggedIn()) then
+      exit(false);
+
+    p := self.getPlayerPos1();
+
+    for i := h downto l do
+      if (SPS_PosToMM(path[i], p, mmPoint)) then
+      begin
+        if (distance(minimap.getCenterPoint(), mmPoint) >= 10) then
+        begin
+          if (spsMultiMouse) then
+            multiClick(mmPoint, 25, 3)
+          else
+            mouse(mmPoint, MOUSE_LEFT);
+
+          if (minimap.isFlagPresent(2500 + random(500))) then
+            minimap.waitFlag(10 + random(25));
+        end;
+
+        t := (getSystemTime() + randomRange(15000, 20000));
+
+        result := (i = h) or (distance(path[i], path[h]) < 10);
+
+        if (result) then
+          break(2)
+        else
+          break();
+
+      end;
+
+    if (p.x = lastPos.x) and (p.y = lastPos.y) then
+      inc(fails);
+
+    lastPos := p;
+
+  until (getSystemTime() > t) or (fails > 5);
+
+  if waitMoving then
+    if (minimap.isFlagPresent() or minimap.isPlayerMoving()) then
+      minimap.waitPlayerMoving(shiftInterval);
+
+  print(self.getName()+'.walkPath(): result = '+boolToStr(result));
+end;
+
+function TSPSArea.blindWalk1(pos: TPoint): boolean;
+var
+  tries: integer;
+  ctrlPoints: TPointArray;
+  p: TPoint;
+begin
+  result := false;
+
+  repeat
+    if (not isLoggedIn()) then
+      exit();
+
+    p := self.getPlayerPos1();
+
+    inc(tries);
+
+    if ((tries) > 10) then
+      break();
+  until (not p.equals([-1, -1]));
+
+  if (tries <= 10) then
+  begin
+    ctrlPoints := TPABetweenPoints(p, pos, 15 + random(25), 15);
+    result := self.walkPath1(ctrlPoints);
+  end;
+
+  print(self.getName()+'.blindWalk1(): result = '+boolToStr(result));
+end;
+
+function TSPSArea.blindWalk2(pos: TPoint): boolean;
+var
+  tries: integer;
+  ctrlPoints: TPointArray;
+  p: TPoint;
+begin
+  result := false;
+
+  repeat
+    if (not isLoggedIn()) then
+      exit();
+
+    p := self.getPlayerPos1();
+
+    inc(tries);
+
+    if ((tries) > 10) then
+      break();
+  until (not p.equals([-1, -1]));
+
+  if (tries <= 10) then
+  begin
+    ctrlPoints := TPABetweenPoints(p, pos, 15 + random(25), 15);
+    result := self.walkPath2(ctrlPoints);
+  end;
+
+  print(self.getName()+'.blindWalk1(): result = '+boolToStr(result));
+end;
+
+procedure terminator();
+begin
+  FreeDTM(leapingTroutDTM);
+  FreeDTM(leapingSalmonDTM);
+  FreeDTM(leapingSturgeonDTM);
+
+  writeln('Ayyy we terminating, screenshot writing to C:\Simba\debug.png');
+  saveScreenshot('C:\Simba\debug.png');
+  //PlaySound('C:\Users\R1\Downloads\custom2slayertaskdone');
+  if weShouldExitToLobby then
+    players[0].exitToLobby;
+end;
+
+procedure loginProcedure();
+begin
+  if not isLoggedIn() then
+  begin             // If player isn't logged in then
+    players[currentPlayer].login();    // Log them in
+    waitForCompass;
+  end;
+
+  if ((minimap.getAngleDegrees > 5) and (minimap.getAngleDegrees < 355)) then
+    begin
+      writeLn('Setting Compass');
+      minimap.clickCompass;
+      mainScreen.setAngle(MS_ANGLE_HIGH);
+      wait(randomrange(650, 1250));
+    end;
+  exitTreasure;
+  claimTicket;
+  closePopup;
+end;
+
+procedure setupLanguage();
+begin
+  Case language Of
+    //english
+    'english':
+    begin
+      riftOption    := ['to ene'];
+      wispText      := ['arves', 'ronic'];   //instead of 'wisp'
+      riftText      := ['Conv'];
+    end;
+    //german
+    'german':
+    begin
+      riftOption    := ['In En'];
+      wispText      := ['Verf'];
+      riftText      := ['Erinn'];
+    end;
+    //portugal
+    'portugal':
+    begin
+      riftOption    := ['ia Fi'];
+      wispText      := ['Fogo'];
+      riftText      := ['Fiss'];
+    end;
+    //french
+    'french':
+    begin
+      riftOption    := ['ie Fa'];
+      wispText      := ['Sph'];
+      riftText      := ['Conv'];
+    end;
+  end;
+  writeln('Selected language: ', language, ' ******Uptext As Follows*******',riftOption, wispText, riftText);
+end;
+
+procedure setupVariables();
+begin
+  cursedWispRift.setup('cursedWispRift', RUNESCAPE_SURFACE);
+
+  lodeToWisp1.setup('lodeToWisp1', RUNESCAPE_SURFACE);
+  lodeToWisp2.setup('lodeToWisp2', RUNESCAPE_SURFACE);
+
+  gotovarrockwest.setup('gotovarrockwest', RUNESCAPE_SURFACE);
+
+  //cursedWispLocation.setup('cursedWispLocation', RUNESCAPE_SURFACE);
+  setupLanguage();
+  searchBox1.setBounds(35, 532, 93, 547);
+  wildyLevelBox.setBounds(505, 26, 573, 45);
+  playerBox.setBounds(206, 120, 360, 270);
+  playerBox1.setBounds(266, 169, 306, 215);
+
+  leapingTroutDTM := DTMFromString('mggAAAHicY2NgYGhiYmCoBeJyIK4H4l4g7gbiKkYGhmIgLgPiGiBuAuJKIJ4xowSoiwkDSzJgByBZRiwYAgD5HAfO');
+  leapingSalmonDTM := DTMFromString('mbQAAAHicY2VgYAhjYmDwBuJAIE4E4mQgLmdkYMgD4iogbgPiOiCODQgAqmZCwZIMmAAkw4iGwQAAqgYFUg==');
+  leapingSturgeonDTM := DTMFromString('mggAAAHicY2NgYLjCxMBwBoivAvFdIH4K5QcxMjBEAnE0EPsBsScQJwBxfq0rUBcTBpZkwA5AsoxYMAQAAGtkCHQ=');
+
+  totalBreakTime := 0;
+end;
+
+procedure setup();
+begin
+  clearDebug();               // Clear the debug box
+  smartEnableDrawing := true; // So we can draw on SMART
+  declarePlayers();             // Set up your username/pass
+  smartShowConsole := false;        //
+  disableIPScreenshots := true;
+  disableSRLLog := true;
+  addOnTerminate('terminator');
+  setupSRL();                   // Load the SRL include files
+  loginProcedure();
+  setupVariables();
+end;
+
+function findCrayFish(): boolean;
+var
+  fishSpotBox: Tbox;
+begin
+  fishSpotBox.setBounds(293, 5, 344, 349);  //barb
+  //fishSpotBox.setBounds(300, 3, 570, 380);  //regular
+  //fishSpotBox.setBounds(0, 0, 565, 304);  //all
+
+  if not findColorsTolerance(fishSpotTPA, fishSpotColor, fishSpotBox, fishSpotTol, colorSetting(2, fishSpotHue, fishSpotSat)) then
+    exit(false);
+
+  fishSpotATPA := fishSpotTPA.toATPA(25, 25);
+  smartImage.debugATPA(fishSpotATPA);
+  wait(1000);
+
+  for i := high(fishSpotATPA) downto 0 do
+  begin
+    smartImage.debugTPA(fishSpotATPA[i], true);
+    writeln(length(fishSpotATPA[i]));
+    if (length(fishSpotATPA[i]) < 20) then
+    begin
+      writeln('deleting fishSpotATPA[i], cause length below min');
+      if i = 0 then
+      begin
+        fishSpotATPA.deleteIndex(i);
+        break;
+      end else
+        fishSpotATPA.deleteIndex(i);
+      continue;
+    end;
+
+    if findColorsTolerance(rockTPA, rockColor, fishSpotATPA[i].getBounds, rockTol, colorSetting(2, rockHue, rockSat)) then
+      if (length(rockTPA) > 0) then
+      begin
+        writeln('deleting fishSpotATPA[i], cause rockTPA length above max');
+        fishSpotATPA.deleteIndex(i);
+      end;
+  end;
+
+  if length(fishSpotATPA) < 1 then
+    exit(false);
+
+  fishSpotATPA.sortFromMidPoint(mainScreen.getCenterPoint);
+  smartImage.clear;
+  smartImage.debugATPA(fishSpotATPA);
+
+  result := true;
+end;
+
+function clickCrayFish(): boolean;
+var
+  isMouseOverr: Boolean;
+begin
+  boolBeforeTime(,,,50000, @findCrayFish);
+
+  isMouseOverr := false;
+  failtimer.start;
+
+  for i := 0 to high(fishSpotATPA) do
+  begin
+    mouse(fishSpotATPA[i].getBounds.getGaussPoint, mouse_move);
+    wait(gaussRangeInt(250, 400));
+    if isMouseOverText(['rod', 'ishi'], 1250) then
+    begin
+      isMouseOverr := true;
+      break;
+    end;
+  end;
+
+  if not isMouseOverr then
+    exit(false);
+
+  if RandomRange(1, 100) < 80 then
+    wait(gaussRangeInt(150, 350));
+
+  fastClick(mouse_Left);
+  if not redAroundMouse then
+    exit(false);
+
+  result := true;
+  mouseOffClient(OFF_CLIENT_RIGHT);
+end;
+
+procedure randomWaitTimez();
+var
+  totalTimeToWait: integer;
+begin
+  writeln('initiating randomWaitTimez');
+
+  if RandomRange(1, 100) < 20 then
+    totalTimeToWait := gaussRangeInt(1250, 3050);
+  if RandomRange(1, 100) < 80 then
+    totalTimeToWait := RandomRange(50, 6050);
+
+  writeln('we will be waiting for: ', totalTimetoWait, ' ms');
+  wait(totalTimeToWait);
+
+  writeln('randomWaitTimez is done!');
+end;
+
+function TRSConversationBox.isOpen1(): boolean;
+var
+  t: LongWord;
+begin
+  writeln('let''s do this!!');
+  t := (getSystemTime() + 0);
+  repeat
+    if (self.x1 - self.x2 = 0) then
+      result := self.__find() else
+      if (countColorTolerance(9021887, self.getBounds(), 35) > 15000) then  // color of the paper like background.
+      begin
+        writeln('countColorTolerance(9021887, self.getBounds(), 35) is: ', countColorTolerance(9021887, self.getBounds(), 35));
+        exit(true);
+      end else
+        writeln('countColorTolerance(9021887, self.getBounds(), 35) is: ', countColorTolerance(9021887, self.getBounds(), 35));
+
+    wait(20 + random(20));
+  until (getSystemTime() >= t) or (result);
+  writeln('result is: ', result);
+end;
+
+procedure clearConv();
+begin
+  writeln('clearing conv');
+  if conversationBox.isOpen then
+  begin
+    conversationBox.continue(true, false, true);
+    writeln('waiting for conversation box to not be open');
+    if not waitTypeFunc(@conversationBox.isOpen1, 300, 15000, false) then
+      scriptTerminator('failed waiting for conversation box to not be open');
+    if RandomRange(1, 100) < 69 then
+      wait(gaussRangeInt(123, 1234));
+    if RandomRange(1, 100) < 69 then
+      wait(gaussRangeInt(123, 1234));
+    writeln('conversation is not open');
+  end;
+end;
+
+function backpackAlmostEmpty(): boolean;
+begin
+  result := (tabBackpack.count < 4);
+end;
+
+function leapingTroutAlmostEmpty(): boolean;
+begin
+  result := (tabBackpack.countDTM(leapingTroutDTM) < 4);
+end;
+
+function leapingSalmonAlmostEmpty(): boolean;
+begin
+  result := (tabBackpack.countDTM(leapingSalmonDTM) < 4 );
+end;
+
+function leapingSturgeonAlmostEmpty(): boolean;
+begin
+  result := (tabBackpack.countDTM(leapingSturgeonDTM) < 4 );
+end;
+
+procedure clearInventory();
+begin //holdkey(gaussRangeInt(250, 900), RandomRange(50, 52), RandomRange(6600, 8400), @backpackAlmostEmpty);
+  if not leapingTroutAlmostEmpty then
+    holdkey(gaussRangeInt(250, 900), RandomRange(50, 51), RandomRange(6600, 8400), @leapingTroutAlmostEmpty);
+
+  if not leapingSalmonAlmostEmpty then
+    holdkey(gaussRangeInt(250, 900), RandomRange(52, 53), RandomRange(6600, 8400), @leapingSalmonAlmostEmpty);
+
+  if not leapingSturgeonAlmostEmpty then
+    holdkey(gaussRangeInt(250, 900), RandomRange(54, 55), RandomRange(6600, 8400), @leapingSturgeonAlmostEmpty);
+end;
+
+procedure waitWhileFishing();
+var
+  invCount: integer;
+begin
+  depositEarly := false;
+
+  writeln('waiting while fishing');
+  minimap.waitPlayerMoving;
+
+  if ((RandomRange(1, 100) < 80) and (tabBackpack.count < 24)) then
+  begin
+    invCount := gaussRangeInt(15, 24);
+    writeln('depositing early this inv, at invCount of: ', invCount);
+    depositEarly := true;
+  end else
+    writeln('not depositing early this inv');
+
+  repeat
+    {
+    if conversationBox.isOpen1 then
+      break;
+    }
+    {
+    prevXP := getXP;
+    if not boolBeforeTime(,, 3600, 4200, @xpChanged) then
+      break;  }
+    if not xpChanged2(5001, 5002) then
+    begin
+      depositEarly := false;
+      break;
+    end;
+    if depositEarly then
+      if tabBackpack.count > invCount then
+        break;
+  until false;
+
+  writeln('done waiting while fishing');
+
+  if not depositEarly then
+    randomWaitTimez;
+
+  clearConv;
+
+  clearInventory;
+end;
+
+procedure startFishing();
+begin
+  if tabBackpack.isFull then
+    exit;
+
+  if depositEarly then
+  begin
+    writeln('depositEarly was true and so we''re exitting without clicking');
+    exit;
+  end;
+
+  if not xpChanged2(5001, 5002) then
+    if not clickCrayFish then
+      if not clickCrayFish then
+        if not clickCrayFish then
+          if not clickCrayFish then
+            if not clickCrayFish then
+              scriptTerminator('failed to click cray fish 5x, terminating');
+end;
+
+procedure test();
+begin
+end;
+
+begin
+  setup;
+
+  repeat
+    clearConv;
+    startFishing;
+    waitWhileFishing;
+  until false;
+
+
+
+ // findCrayFish;
+
+end.

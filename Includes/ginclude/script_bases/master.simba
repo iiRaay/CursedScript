@@ -1,0 +1,2 @@
+{$include_once mining_base.simba}
+{$include_once cursed_base.simba}

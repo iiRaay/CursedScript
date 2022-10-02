@@ -1,0 +1,86 @@
+var
+  copperTPA, ironTPA: TPointArray;
+  copperATPA, ironATPA: T2DPointArray;
+  AB_COPPER_ORE_DTM: integer;
+  toVarrockMines: TSPSArea;
+
+function copperPresent(minRocks, minPoints, maxPoints: integer): boolean;
+begin
+  if (findColorsTolerance(copperTPA, 6195400, mainscreen.getBounds(), 13, ColorSetting(2, 0.22, 1.11))) then
+    copperATPA := copperTPA.toATPA(20, 20);     //converts the TPA from colors found into ATPA
+
+  if not (length(copperATPA) < 1) then   //failsafe if ATPA length less than one
+  begin
+    copperATPA.filterBetween(0, minPoints);
+    copperATPA.filterBetween(maxPoints, 10000);
+    writeln('found rocks successfully');
+  end else
+  begin
+    writeln('not enof colours found');
+    exit(false);
+  end;
+
+  if length(copperATPA) > minRocks then
+  begin
+    copperATPA.sortFromMidPoint(mainscreen.playerPoint);     //sorts rocks to closest to player
+    exit(true);
+  end else
+    writeln('ATPA not big enough');
+end;
+
+function ironPresent(minRocks, minPoints, maxPoints: integer): boolean;
+begin
+  if (findColorsTolerance(ironTPA, 2044789, mainscreen.getBounds(), 4, ColorSetting(2, 0.08, 0.27))) then
+    ironATPA := ironTPA.toATPA(20, 20);     //converts the TPA from colors found into ATPA
+
+  if not (length(ironATPA) < 1) then   //failsafe if ATPA length less than one
+  begin
+    ironATPA.filterBetween(0, minPoints);
+    ironATPA.filterBetween(maxPoints, 10000);
+    writeln('found rocks successfully');
+  end else
+  begin
+    writeln('not');
+    exit(false);
+  end;
+
+  if length(ironATPA) > minRocks then
+  begin
+    ironATPA.sortFromMidPoint(mainscreen.playerPoint);     //sorts rocks to closest to player
+    exit(true);
+  end else
+    writeln('ATPA not big enough');
+end;
+
+function weShouldDropCopper(copperMax, filledSlotsMax: integer): boolean;
+begin
+  if tabBackpack.countDTM(AB_COPPER_ORE_DTM) < copperMax then
+    exit(false);
+
+  if not tabBackpack.count > filledSlotsMax then
+    exit(false);
+
+  result := true;
+end;
+
+function DTMsNotInInv(): boolean;
+begin
+  //writeln(tabBackpack.countDTM(AB_COPPER_ORE_DTM) < 1);
+  result := (tabBackpack.countDTM(AB_COPPER_ORE_DTM) < 1);
+end;
+
+function dropCopper(dropperKey, maxTime: Integer): boolean;
+begin
+  holdkey(gaussrangeint(220, 340), dropperKey, maxTime, @DTMsNotInInv);
+end;
+
+procedure teleVarrock(waitRange1, waitRange2: integer);
+begin
+  lodestoneScreen.teleportTo(LOCATION_VARROCK, true);
+  wait(gaussRangeInt(waitRange1, waitRange2));
+end;
+
+procedure walkToMines();
+begin
+  toVarrockMines.walkPath([Point(117, 183), Point(155, 195), Point(199, 197), Point(239, 201), Point(273, 193), Point(303, 183), Point(317, 209)])
+end;

@@ -1,0 +1,127 @@
+program deezNuts;
+
+//{$DEFINE SMART}              // Always have this to load smart
+{$I SRL-6/SRL.simba}         // To load the SRL include files
+//{$I SPS/lib/SPS-RS3.Simba}   // To load the SPS include files
+
+const
+  name1 = 'killer targ4';
+  pass1 = 'kf35y';
+  world1 = 117;
+
+procedure declarePlayers();
+begin
+  setLength(players, 1);
+  with players[0] do
+  begin
+    loginName := name1;
+    password := pass1;
+    isActive := true;
+    isMember := true;
+    world := world1;
+  end;
+  currentPlayer := 0;
+end;
+
+{*
+__setInputBoxes
+---------------
+
+.. code-block:: pascal
+
+    function __setInputBoxes(): boolean;
+
+Finds and sets the username and password box parameters. Returns true if
+both boxes are found.
+
+.. note::
+
+    - by Coh3n
+    - Last updated: 3 January 2015 by The Mayor
+
+Example:
+
+.. code-block:: pascal
+
+    __setInputBoxes();
+*}
+
+function __setInputBoxes1(): boolean;
+const
+  __BORDER_LENGTH = 299;
+var
+  tpaActive, tpaInactive: TPointArray;
+  bdsActive, bdsInactive: TBox;
+begin
+  findColors(tpaActive, 6774863, 384, 112, 673, 254); // active box border color
+  findColors(tpaInactive, 6906451, 384, 112, 673, 254); // inactive box border color
+  writeln('1test: ', length(tpaActive));
+  writeln('2test: ', length(tpaInactive));
+  {
+  smartImage.DrawTPA(tpaActive, clred);
+  smartImage.DrawTPA(tpainActive, clblue);
+  writeln('waiting 3');
+  wait(3000);
+  smartImage.clear;
+  writeln('waiting 2');
+  wait(2000);
+  }
+  //384, 112, 673, 254
+  if length(tpaActive) = 0 then
+    findColors(tpaActive, 9867393, 384, 112, 673, 254); // active box border color when mouse is hovering
+
+  if length(tpaInactive) = 0 then
+    findColors(tpaInactive, 9867393, 384, 112, 673, 254); // inactive box border color when mouse is hovering
+  writeln('3test: ', length(tpaActive));
+  writeln('4test: ', length(tpaInactive));
+
+ {
+  smartImage.DrawTPA(tpaActive, clred);
+  smartImage.DrawTPA(tpainActive, clblue);
+  writeln('waiting 1');
+  wait(1000);
+  smartImage.clear;
+  }
+  writeln('length is: ', length(tpaActive));
+  if (length(tpaActive) = __BORDER_LENGTH) then
+  begin
+    result := true;
+    print('__setInputBoxes(): Set username and password boxes', TDebug.SUB);
+
+    bdsActive := tpaActive.getBounds();
+    bdsInactive := tpaInactive.getBounds();
+
+    // sets the username box as the box that's closer to the top of the screen
+    if (bdsActive.y1 < bdsInactive.y1) then
+    begin
+      __boxUsername := bdsActive;
+      __boxPassword := bdsInactive;
+    end else
+    begin
+      __boxUsername := bdsInactive;
+      __boxPassword := bdsActive;
+    end;
+  end;
+end;
+
+procedure test(); //lodeStoneToWisps
+begin
+  clearDebug();               // Clear the debug box
+  //smartEnableDrawing := true; // So we can draw on SMART
+  //declarePlayers();             // Set up your username/pass
+  //smartShowConsole := false;        //
+  disableIPScreenshots := true;
+  disableSRLLog := true;
+  //addOnTerminate('terminator');
+  //setupSRL();                   // Load the SRL include files
+  //__setInputBoxesNXT;
+end;
+
+begin
+  //test;
+  //cursedEnergiesScript(randomrange(29998, 29999), false);
+  //__setInputBoxes();
+  declarePlayers;
+  setupSRL;
+  players[currentPlayer].login();
+end.

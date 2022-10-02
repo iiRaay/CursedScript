@@ -1,0 +1,18 @@
+var
+  failtimer, failtimer2, mainloopTimer: TTimeMarker;
+
+  mapPoint, lodestonePoint, p: TPoint;
+
+  x, y, botID,
+  freedomSlot, totalBreakTime, prevXP,
+  mapbmp, lodestoneBMP, closeDTM, freedomDTM, rowDTM,
+  GlobalSmartInteger: Integer;
+
+  weTeleported, weShouldTeleport: boolean;
+  healthBox, testBox: Tbox;
+
+  mapIconXNumbersBig, lodestoneIconXNumbersBig,
+  mapIconXNumbersSmall, lodestoneIconXNumbersSmall,
+  lodestoneIconYNumbersSmall: TIntegerArray;
+
+  newTabAreaBoxArray: TBoxArray;

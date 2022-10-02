@@ -1,0 +1,691 @@
+program scriptTemplate;
+
+{$DEFINE SMART}              // Always have this to load smart
+{$I SRL-6/SRL.simba}         // To load the SRL include files
+{$I SPS/lib/SPS-RS3.Simba}   // To load the SPS include files
+{$I ginclude/master.simba}
+
+const
+  chanceToRightClickBank = 100;
+  chanceToRightClickRuins = 100;
+  //chanceToLeftClickPortal = 100;
+
+var
+  justClick: boolean;
+
+procedure declarePlayers();
+begin
+  setLength(players, 1);
+  with players[0] do
+  begin
+    loginName := 'masterhackz0rz77@gmail.com';
+    password := 'johnsonmagicwang23';
+    isActive := true;
+    isMember := true;
+    world := 96;
+  end
+  currentPlayer := 0;
+end;
+
+procedure terminator();
+begin
+  writeLn('We are terminating');
+end;
+
+procedure loginProcedure();
+begin
+  if not isLoggedIn() then
+  begin             // If player isn't logged in then
+    players[currentPlayer].login();    // Log them in
+    wait(randomRange(1500,3000));
+  end;
+
+  {
+  if ((minimap.getAngleDegrees > 5) and (minimap.getAngleDegrees < 355)) then
+    begin
+      writeLn('Setting Compass');
+      minimap.clickCompass;
+      mainScreen.setAngle(MS_ANGLE_HIGH);
+      wait(randomrange(650, 1250));
+    end;
+  }
+
+  //minimap.
+  exitTreasure;
+  claimTicket;
+  closePopup;
+end;
+
+procedure setup();
+begin
+  clearDebug();               // Clear the debug box
+  smartEnableDrawing := true; // So we can draw on SMART
+  declarePlayers();             // Set up your username/pass
+  smartShowConsole := true;        //
+  disableIPScreenshots := true;
+  disableSRLLog := true;
+  addOnTerminate('terminator');
+  setupSRL();                   // Load the SRL include files
+
+  //searchBox1.setBounds(19, 505, 116, 554);
+  searchBox1.setBounds(6, 479, 144, 542);
+  loginProcedure();
+end;
+
+function didPixelsShift(b: TBoxArray; time: integer): boolean;
+var
+  l, i, shiftNumber: integer;
+  bmpBefore, bmpAfter: TIntegerArray;
+  aTimer: TTimeMarker;
+begin
+  l := length(b);
+  setLength(bmpBefore, l);
+  setLength(bmpAfter, l);
+  //setLength(result, l);
+
+  // get the initial pixels
+  for i := 0 to (l - 1) do
+    bmpBefore[i] := bitmapFromClient(b[i].x1, b[i].y1, b[i].x2, b[i].y2);
+
+  aTimer.start;
+  repeat
+    // get pixels after the wait
+    for i := 0 to (l - 1) do
+      bmpAfter[i] := bitmapFromClient(b[i].x1, b[i].y1, b[i].x2, b[i].y2);
+
+    // calculate the pixels that changed
+    for i := 0 to (l - 1) do
+      shiftNumber := calculatePixelShift(bmpBefore[i], bmpAfter[i], intToBox(0, 0, (b[i].x2 - b[i].x1), (b[i].y2 - b[i].y1)));
+
+    freeBitmaps(bmpAfter);
+
+    if shiftNumber <> 0 then
+      break;
+
+    wait(100);
+  until aTimer.getTime > time;
+
+  if aTimer.getTime > time then
+    result := false
+  else
+    result := true;
+
+  freeBitmaps(bmpBefore);
+end;
+
+function didPixelsShift(b: Tbox; time: integer): boolean; overload;
+begin
+  result := didPixelsShift([b], time);
+end;
+
+function xpChanged5000(): boolean;
+begin
+  result := didPixelsShift(searchBox1, 5000);
+end;
+
+function xpChanged10000(): boolean;
+begin
+  result := didPixelsShift(searchBox1, 10000);
+end;
+
+function findBanker(out outBox: Tbox): boolean;
+const
+  bankerColor = 9889524;
+  bankerTol = 20;
+  bankerHue = 0.24;
+  bankerSat = 1.49;
+var
+  bankerTPA: TPointArray;
+  bankerATPA: T2DPointArray;
+  yellowColors: TColorData;
+  i: integer;
+begin
+  if not minimap.findSymbol(p, MM_SYMBOL_BANK, minimap.getBounds) then
+    exit(false);
+
+  p.y := p.y + 10;
+  p.x := p.x;
+  smartimage.drawCircle(p, 3, true, clwhite);
+  p := minimap.pointToMainscreen(p);
+  writeln('p is: ', p);
+
+  if ((p.x > 530) or (p.y > 310) or (p.x < 0) or (p.y < 0)) then
+  begin
+    writeln('banker likely is not on mainscreen.');
+    exit(false);
+  end;
+
+  smartimage.drawCircle(p, 3, true, clWhite);
+
+  yellowColors.color := bankerColor;
+  yellowcolors.tolerance := bankerTol;
+  yellowcolors.settings.cts := 2;
+  yellowcolors.settings.modifier.hue := bankerHue;
+  yellowcolors.settings.modifier.saturation := bankersat;
+
+  if not yellowcolors.gatherIn(bankerTPA, mainscreen.getBounds) then
+    exit(false)
+  else
+    mainscreen.filterPointsPlayer(bankerTPA);
+
+  bankerATPA := bankerTPA.cluster(15);
+  //smartimage.debugTPA(bankerTPA, true);
+
+  bankerATPA.filterBetween(1, 5);
+  bankerATPA.filterBetween(100, 200);
+  if length(bankerATPA) < 1 then
+    exit(false);
+
+  bankerATPA.sortFromMidPoint(p);
+  smartimage.debugATPA(bankerATPA);
+
+  for i := 0 to high(bankerATPA) do
+  begin
+    smartimage.debugTPA(bankerATPA[i], true);
+  end;
+
+  result := true;
+  outBox := bankerATPA[0].getBounds;
+end;
+
+
+
+function bankerFound(): boolean;
+var
+  bankerBox: Tbox;
+begin
+  result := findBanker(bankerBox);
+end;
+
+function getBankerText(): boolean;
+begin
+  result := chooseOption.select(['Bank'], gaussrangeint(1250, 1850), false);
+end;
+
+function getRuinsText(): boolean;
+begin
+  result := chooseOption.select(['enter', 'steri'], gaussrangeint(1250, 1850), false);
+end;
+
+function getAltarUpText(): boolean
+begin
+  result := isMouseOverText(['ltar']);
+end;
+
+function getPortalText(): boolean;
+begin
+  result := chooseOption.optionsExist(['nter', 'ortal'])
+end;
+
+function clickBanker(): boolean;
+var
+  bankerBox: Tbox;
+  clickPoint: TPoint;
+  weAreRightClicking: boolean;
+begin
+  wait(gaussRangeInt(550, 750));
+  if chance1000(333) then
+    wait(gaussRangeInt(333, 666));
+
+  if not findBanker(bankerBox) then
+    exit(false);
+
+  clickPoint := bankerBox.getGaussPoint;
+  moveMouse(clickPoint);
+
+  if (randomrange(1, 100) <= chanceToRightClickBank) then
+    weAreRightClicking := true;
+
+  if weAreRightClicking then
+  begin
+    writeln('we are right clicking at: ', clickPoint);
+    fastClick(mouse_right);
+    if not boolBeforeTime(,, 1850, 3050, @getBankerText) then
+    begin
+      mouseOffClient(OFF_CLIENT_RIGHT);
+      exit(false);
+    end else
+      exit(true);
+  end else
+  begin
+    writeln('we are left clicking at: ', clickPoint);
+    fastClick(mouse_left);
+    if not boolBeforeTime(,, 450, 950, @redAroundMouse) then
+      exit(false)
+    else
+      exit(true);
+  end;
+end;
+
+procedure openBanker();
+begin
+  if not boolBeforeTime(,, 24500, 28500, @bankerFound) then
+    scriptTerminator('failed to find a banker to try to click on in time.. terminating.')
+  else
+    writeln('detected banker!');
+
+  if not boolBeforeTime(,,,, @clickBanker) then
+  //if not clickBanker then
+    scriptTerminator('failed to click a banker in time.. terminating')
+  else
+    writeln('clicked banker succesfully!');
+end;
+
+function bankscreenIsOpen(): boolean;
+begin
+  result := bankscreen.isOpen;
+end;
+
+function bankscreenIsNotOpen(): boolean;
+begin
+  result := not bankscreen.isOpen;
+end;
+
+procedure usePreset1(checkIfSuccessful: boolean);
+begin
+  writeln('using preset1');
+
+  if justClick = true then
+  begin
+    bankScreen.clickButton(BANK_BUTTON_PRESET_1, false);
+    if checkIfSuccessful then
+      if not boolBeforeTime(,, 3600, 4800, @bankscreenIsNotOpen) then
+        scriptTerminator('failed to use Preset 1');
+  end else
+  begin
+    wait(gaussrangeint(250, 450));
+    typesend('1', false);
+    if checkIfSuccessful then
+      if not boolBeforeTime(,, 2850, 4250, @bankscreenIsNotOpen) then
+      begin
+        justClick := true;
+        bankScreen.clickButton(BANK_BUTTON_PRESET_1, false);
+        if not boolBeforeTime(,, 3600, 4800, @bankscreenIsNotOpen) then
+          scriptTerminator('failed to use Preset 1');
+      end;
+  end;
+
+  writeln('used preset1');
+end;
+
+procedure clickTopLeftMM();
+var
+  belowBox, rightBox: TBox;
+  useRightBox: boolean;
+begin
+  belowBox.setBounds(590, 55, 623, 70);
+  rightBox.setBounds(617, 52, 632, 70);
+
+  if chance1000(500) then
+    useRightBox := true;
+
+  if useRightBox then
+    p := rightbox.getGaussPoint
+  else
+    p := belowBox.getGaussPoint;
+
+  moveMouse(p);
+  fastClick(mouse_left);
+end;
+
+function invIsFull(): boolean;
+begin
+  result := tabBackpack.isFull;
+end;
+
+function ruinsFound(out outBox: Tbox): boolean;
+const
+  ruinsColor = 13012754;
+  ruinsTol = 6;
+  ruinsHue = 0.23;
+  ruinsSat = 0.54;
+var
+  ruinsTPA: TPointArray;
+  ruinsATPA: T2DPointArray;
+  ruinsColors: TColorData;
+begin
+  if not minimap.findSymbol(p, MM_SYMBOL_RUNECRAFTING, minimap.getBounds) then
+    exit(false);
+
+  p.y := p.y + 10;
+  p.x := p.x;
+  smartimage.drawCircle(p, 3, true, clOrange);
+  p := minimap.pointToMainscreen(p);
+  writeln('p is: ', p);
+
+  //if ((p.x > 530) or (p.y > 330) or (p.x < 0) or (p.y < 0)) then
+  if ( (p.x < 100) or (p.y < 100) or (p.x > 560) or (p.y > 370) ) then
+  begin
+    writeln('ruins likely is not on mainscreen.');
+    exit(false);
+  end;
+
+  smartimage.drawCircle(p, 3, true, clOrange);
+
+  ruinsColors.color := ruinsColor;
+  ruinscolors.tolerance := ruinsTol;
+  ruinscolors.settings.cts := 2;
+  ruinscolors.settings.modifier.hue := ruinsHue;
+  ruinscolors.settings.modifier.saturation := ruinsSat;
+
+  if not ruinscolors.gatherIn(ruinsTPA, mainscreen.getBounds) then
+    exit(false)
+  else
+    mainscreen.filterPointsPlayer(ruinsTPA);
+
+  if length(ruinsTPA) < 1 then
+    exit(false);
+
+  ruinsATPA := ruinsTPA.cluster(15);
+  ruinsATPA.filterBetween(1, 5);
+  //smartimage.debugTPA(bankerTPA, true);
+
+  if length(ruinsATPA) < 1 then
+    exit(false);
+
+  ruinsATPA.sortFromMidPoint(p);
+  smartimage.debugATPA(ruinsATPA);
+
+  result := true;
+  outBox := ruinsATPA[0].getBounds;
+end;
+
+function ruinsFound2(): boolean;
+var
+  blueBox: Tbox;
+begin
+  result := ruinsFound(blueBox);
+end;
+
+function clickRuins(): boolean;
+var
+  ruinsBox: Tbox;
+  clickPoint: TPoint;
+  weAreRightClicking: boolean;
+begin
+  wait(gaussRangeInt(400, 900));
+  if chance1000(666) then
+    wait(gaussRangeInt(333, 666));
+
+  if not ruinsFound(ruinsBox) then
+    exit(false);
+
+  clickPoint := ruinsBox.getGaussPoint;
+  moveMouse(clickPoint);
+
+  if (randomrange(1, 100) <= chanceToRightClickRuins) then
+    weAreRightClicking := true;
+
+  if weAreRightClicking then
+  begin
+    fastClick(mouse_right);
+    if not boolBeforeTime(,, 1850, 3050, @getRuinsText) then
+    begin
+      mouseOffClient(OFF_CLIENT_RIGHT);
+      exit(false);
+    end else
+      exit(true);
+  end else
+  begin
+    fastClick(mouse_left);
+    if not boolBeforeTime(,, 450, 950, @redAroundMouse) then
+      exit(false)
+    else
+      exit(true);
+  end;
+end;
+
+procedure enterRuins();
+begin
+  if not boolBeforeTime(,, 12500, 14500, @ruinsFound2) then
+    scriptTerminator('failed to detect ruins in time.. terminating.')
+  else
+    writeln('detected ruins!');
+
+  wait(gaussRangeInt(150, 300));
+
+  if not boolBeforeTime(,,,, @clickRuins) then
+    scriptTerminator('failed to click on ruins successfully in time.. terminating')
+  else
+    writeln('clicked ruins!');
+end;
+
+procedure hoverClickAltar();
+var
+  box1, hoverBox: Tbox;
+begin
+  box1 := tabBackpack.getSlotBox(1);
+  p := box1.getGaussPoint;
+
+  mouse(p, mouse_left);
+
+  hoverBox.setBounds(0, 34, 22, 69);
+  p := hoverbox.getGaussPoint;
+
+  mouse(p, mouse_move);
+
+  if not boolBeforeTime(,,,, @getAltarUpText) then
+    scriptTerminator('failed to get altar up text in time, terminating..')
+  else
+    writeln('got altar uptext!');
+
+  fastClick(mouse_left);
+end;
+
+procedure waitForXPAltar();
+begin
+  if not boolBeforeTime(,,,, @xpChanged5000) then
+    scriptTerminator('exp failed to change after clicking on altar.. terminating')
+  else
+    writeln('exp changed! hooray');
+end;
+
+function findPortal(out outbox: Tbox): boolean;
+const
+  portalColor = 7317411;
+  portalTol = 10;
+  portalHue = 0.04;
+  portalSat = 0.48;
+var
+  portalTPA: TPointArray;
+  portalATPA: T2DPointArray;
+  portalColors: TColorData;
+begin
+  if not minimap.findSymbol(p, MM_SYMBOL_TRANSPORTATION, minimap.getBounds) then
+    exit(false);
+
+  p.y := p.y + 10;
+  p.x := p.x - 5;
+  smartimage.drawCircle(p, 3, true, clGreen);
+  p := minimap.pointToMainscreen(p);
+  writeln('p is: ', p);
+
+  if ((p.x > 570) or (p.y > 360) or (p.x < 0) or (p.y < 0)) then
+  //if ( (p.x < 100) or (p.y < 100) or (p.x > 560) or (p.y > 370) ) then
+  begin
+    writeln('portal likely is not on mainscreen.');
+    exit(false);
+  end;
+
+  smartimage.drawCircle(p, 3, true, clGreen);
+
+  portalColors.color := portalColor;
+  portalColors.tolerance := portalTol;
+  portalcolors.settings.cts := 2;
+  portalcolors.settings.modifier.hue := portalHue;
+  portalcolors.settings.modifier.saturation := portalSat;
+
+  writeln('looking for portal colors1');
+
+  if not portalcolors.gatherIn(portalTPA, mainscreen.getBounds) then
+    exit(false)
+  else
+    mainscreen.filterPointsPlayer(portalTPA);
+
+  if length(portalTPA) < 1 then
+    exit(false);
+
+  writeln('portal colors Found');
+
+  writeln('clustering portal TPA');
+  portalATPA := portalTPA.cluster(15);
+
+  writeln('filtering portal ATPA');
+  portalATPA.filterBetween(1, 5);
+  if length(portalATPA) < 1 then
+    exit(false);
+  //smartimage.debugTPA(bankerTPA, true);
+
+  writeln('sorting portal ATPA');
+  portalATPA.sortFromMidPoint(p);
+  smartimage.debugATPA(portalATPA);
+
+  writeln('portalATPA[0].getBounds is: ', portalATPA[0].getBounds);
+
+  result := true;
+  outBox := portalATPA[0].getBounds;
+end;
+
+function foundPortal(): boolean;
+var
+  outBox: Tbox;
+begin
+  result := findPortal(outBox);
+end;
+
+function preClickedPortal(): boolean;
+var
+  portalBox: Tbox;
+  clickPoint: Tpoint;
+begin
+  //if chance(500) then
+    //wait(gaussRangeInt(400, 750));
+
+  writeln('looking for portalBox');
+  if not findPortal(portalBox) then
+    exit(false);
+
+  writeln('portal box found!');
+
+  clickPoint := portalBox.getGaussPoint;
+  moveMouse(clickPoint);
+  fastClick(mouse_right);
+
+  if not boolBeforeTime(,, 1250, 2450, @getPortalText) then
+  begin
+    mouseOffClient(OFF_CLIENT_RIGHT);
+    exit(false);
+  end else
+    exit(true);
+end;
+
+procedure preClickPortal();
+begin
+  smartimage.clear;
+  if not boolBeforeTime(,,,, @preClickedPortal) then
+    scriptTerminator('failed to pre click portal in time, terminating.')
+  else
+    writeln('pre clicked portal successfully!');
+end;
+
+procedure clickPortal();
+begin
+  if not chooseOption.select(['nter']) then
+    scriptTerminator('failed to left click portal??? terminating');
+end;
+
+procedure waitForLoading();
+begin
+  if not boolBeforeTime(100, 200,,, @isLoading) then
+    scriptTerminator('failed to notice loading symbol in time? terminating')
+  else
+    writeln('loading screen popped up in time!');
+end;
+
+procedure clickBottomRightMM();
+var
+  clickBox: Tbox;
+  clickPoint: Tpoint;
+begin
+  clickBox.setBounds(740, 116, 770, 140);
+  clickPoint := clickBox.getGaussPoint;
+
+  mouse(clickPoint, MOUSE_MOVE);
+  fastClick(mouse_left);
+end;
+
+procedure mainloop();
+begin
+  clickBottomRightMM;
+
+  wait(gaussRangeInt(1250, 1850));
+
+  if minimap.findSymbol(p, MM_SYMBOL_BANK, minimap.getBounds) then
+  begin
+    p.y := p.y + 10;
+    moveMouse(p);
+    fastClick(mouse_left);
+  end;
+
+  //correct bottom right click HERE
+
+  openBanker;
+
+  if not boolBeforeTime(,, 14500, 18800, @bankscreenIsOpen) then
+    scriptTerminator('failed to see open bank screen after clicking... terminating');
+
+  usePreset1(false);
+
+  clickTopLeftMM;
+
+  if not boolBeforeTime(,,,, @bankscreenIsNotOpen) then
+    scriptTerminator('failed to click top left mm?? terminating')
+  else
+    writeln('bankscreen is gone!');
+
+  if not boolBeforeTime(,,,, @invIsFull) then
+    scriptTerminator('inventory was not full?? terminating')
+  else
+    writeln('inventory is full!');
+
+  enterRuins;
+
+  hoverClickAltar;
+
+  wait(gaussRangeInt(500, 1950));
+
+  preClickPortal;
+
+  waitForXPAltar;
+
+  clickPortal;
+
+  waitForLoading;
+end;
+
+procedure mudRunesScript(minsToRunFor: integer);
+
+begin
+  ClearDebug;
+  mainloopTimer.start;
+  setup();
+
+  repeat
+    mainloop;
+  until ((mainloopTimer.getTime/60000) > minsToRunFor);
+end;
+
+procedure test();
+begin
+  setup;
+
+  writeln(didPixelsShift(searchBox1, 10000));
+end;
+
+// main loop
+begin
+  //test;
+  mudRunesScript(30);
+
+  writeln('script ran successfully!');
+end.

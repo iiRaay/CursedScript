@@ -1,0 +1,281 @@
+{
+Lets you know if it is rays bot or not
+}
+function isRay(ID: integer): boolean;
+var
+  thePage, theUrl: string;
+  theNumber: integer;
+begin
+  theUrl := '198.50.160.247/phpmyadmin/getIsRay.php?ID=' + IntToStr(ID);
+  thePage := GetPage(theUrl);
+  writeln('theUrl isL ', theUrl);
+  writeln('thePage is: ', thePage);
+
+  if strContains(thePage, 'error') then
+  begin
+    writeln('error detected when finding out if this is rays bot, terminating script.');
+    TerminateScript;
+  end;
+
+  if length(thePage) < 1 then
+  begin
+    //writeln('the page''s length was less than 1, exitting false');
+    exit(false);
+  end;
+
+  theNumber := StrToInt(thePage);
+  //writeln('theNumber is: ', theNumber);
+
+  if theNumber = 0 then
+  begin
+    //writeln('page result was 0, that means it''s not rays bot');
+    exit(false);
+  end;
+
+  if ((theNumber > 0) and (theNumber < 10)) then
+  begin
+    //writeln('page result was 1-9, that means it was rays bot');
+    exit(true);
+  end;
+end;
+
+{
+Adds a bot to the database if computer its on is whitelisted (by IPv4 address)
+}
+function addBotToDB(username, password: string; isRay: boolean): string;
+var
+  ip, url, ray: string;
+begin
+  if isRay then
+    ray := '1' else
+    ray := '0';
+
+  ip := GetPage('http://raymondduong.com/useful/myip.php');
+  url := 'http://198.50.160.247/phpmyadmin/addBotLogin.php?newUser=' + username + '&newPassword=' + password + '&newIP=' + ip + '&isRay=' + ray;
+  //writeln('url is: ' + url);
+
+  result := GetPage(url);
+end;
+
+{
+Gets username by querying database with the bot ID
+}
+function getUsername(ID: integer): string;
+var
+  thePage: string;
+begin
+  thePage := GetPage('http://198.50.160.247/phpmyadmin/getUsername.php?ID=' + IntToStr(ID));
+
+  if strContains(thePage, 'error') then
+  begin
+    writeln('error detected when getting username, terminating script.');
+    TerminateScript;
+  end;
+
+  if length(thePage) < 1 then
+  begin
+    writeln('no username found, terminating');
+    TerminateScript;
+  end;
+
+  if length(thePage) > 50 then
+  begin
+    writeln('this aint no username, terminating');
+    TerminateScript;
+  end;
+
+  result := thePage;
+end;
+
+{
+Gets password by querying database with the bot ID
+}
+function getPassword(ID: integer): string;
+var
+  thePage: string;
+begin
+  thePage := GetPage('http://198.50.160.247/phpmyadmin/getPassword.php?ID=' + IntToStr(ID));
+
+  if strContains(thePage, 'error') then
+  begin
+    writeln('error detected when getting password, terminating script.');
+    TerminateScript;
+  end;
+
+  if length(thePage) < 1 then
+  begin
+    writeln('no password found, terminating');
+    TerminateScript;
+  end;
+
+  if length(thePage) > 50 then
+  begin
+    writeln('this aint no password, terminating');
+    TerminateScript;
+  end;
+
+  result := thePage;
+end;
+
+{
+Gets IP by querying database with the bot ID
+}
+function getIP(ID: integer): string;
+var
+  thePage: string;
+begin
+  thePage := GetPage('http://198.50.160.247/phpmyadmin/getIP.php?ID=' + IntToStr(ID));
+
+  if strContains(thePage, 'error') then
+  begin
+    writeln('error detected when getting IP, terminating script.');
+    TerminateScript;
+  end;
+
+  if length(thePage) < 1 then
+  begin
+    writeln('no IP found, terminating');
+    TerminateScript;
+  end;
+
+  if length(thePage) > 50 then
+  begin
+    writeln('this aint no IP, terminating');
+    TerminateScript;
+  end;
+
+  result := thePage;
+end;
+
+{
+Gets ID by querying database with the bot username
+}
+function getID(username: string): integer;
+var
+  thePage: string;
+begin
+  thePage := GetPage('http://198.50.160.247/phpmyadmin/getID.php?username=' + username);
+
+  if strContains(thePage, 'error') then
+  begin
+    writeln('error detected when getting IP, terminating script.');
+    TerminateScript;
+  end;
+
+  if length(thePage) < 1 then
+  begin
+    writeln('no ID found, terminating');
+    TerminateScript;
+  end;
+
+  if length(thePage) > 50 then
+  begin
+    writeln('this aint no ID, terminating');
+    TerminateScript;
+  end;
+
+  result := StrToInt(thePage);
+end;
+
+{
+Updates the specified botID in the database with the most recent minutes since unix
+}
+function updateTime(botID: integer): boolean;
+var
+  thePage, theTime, thePageResult: string;
+begin
+  theTime := GetPage('raymondduong.com/wedmarco.php');
+  thePage := '198.50.160.247/phpmyadmin/updateTime.php?ID=' + IntToStr(botID) + '&newTime=' + theTime + '&newTimer=' + msToTime(GetTimeRunning, TIME_BARE);
+  //writeln('the Page is: ' + thePage);
+
+  thePageResult := GetPage(thePage);
+  //writeln('the page result is: ' + thePageResult);
+
+  if StrContains(thePageResult, 'true') then
+    exit(true);
+  if StrContains(thePageResult, 'false') then
+    exit(false);
+
+  writeln('failed to update time??');
+  writeln('the Page is: ' + thePage);
+  writeln('the page result is: ' + thePageResult);
+
+  TerminateScript;
+end;
+
+{
+Updates the specified botID in the database with VPSinfo
+}
+function updateVPSinfo(botID: integer; VPSinfo: string): boolean;
+var
+  thePage, thePageResult: string;
+begin
+  thePage := '198.50.160.247/phpmyadmin/updateVPSinfo.php?ID=' + IntToStr(botID) + '&VPSinfo=' + VPSinfo;
+  writeln('the Page is: ' + thePage);
+
+  thePageResult := GetPage(thePage);
+  //writeln('the page result is: ' + thePageResult);
+
+  if StrContains(thePageResult, 'true') then
+    exit(true);
+  if StrContains(thePageResult, 'false') then
+    exit(false);
+
+  writeln('failed to update VPS info??');
+  writeln('the Page is: ' + thePage);
+  writeln('the page result is: ' + thePageResult);
+
+  writeln('terminating script!!');
+  TerminateScript;
+end;
+
+{
+Barbaric way to push to database that bot is dead, would be best to have a boolean you change at startup & terminate of hypercam...
+}
+function pushBotIsDeadBarbaric(botID: integer): boolean;
+var
+  thePage, thePageResult: string;
+begin
+  thePage := '198.50.160.247/phpmyadmin/updateTime.php?ID=' + IntToStr(botID) + '&newTime=' + IntToStr(1) + '&newTimer=' + msToTime(GetTimeRunning, TIME_BARE);
+  //writeln('the Page is: ' + thePage);
+
+  thePageResult := GetPage(thePage);
+  //writeln('the page result is: ' + thePageResult);
+
+  if StrContains(thePageResult, 'true') then
+    exit(true);
+  if StrContains(thePageResult, 'false') then
+    exit(false);
+
+  writeln('failed to update time??');
+  writeln('the Page is: ' + thePage);
+  writeln('the page result is: ' + thePageResult);
+
+  TerminateScript;
+end;
+
+
+{
+Updates the specified botID in the database with the IP of the Machine its being ran on now.
+}
+function changeIP(botID: integer): boolean;
+var
+  thePage, thePageResult: string;
+begin
+  thePage := '198.50.160.247/phpmyadmin/changeIP.php?ID=' + IntToStr(botID) + '&newIP=''' + GetPage('http://raymondduong.com/useful/myip.php') + '''';
+  //writeln('the Page is: ' + thePage);
+
+  thePageResult := GetPage(thePage);
+  //writeln('the page result is: ' + thePageResult);
+
+  if StrContains(thePageResult, 'true') then
+    exit(true);
+  if StrContains(thePageResult, 'false') then
+    exit(false);
+
+  writeln('failed to change ip??');
+  writeln('the Page is: ' + thePage);
+  writeln('the page result is: ' + thePageResult);
+
+  TerminateScript;
+end;

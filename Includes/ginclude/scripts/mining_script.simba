@@ -1,0 +1,235 @@
+program fukMoo;
+
+{$DEFINE SMART}              // Always have this to load smart
+{$I SRL-6/SRL.simba}         // To load the SRL include files
+{$I SPS/lib/SPS-RS3.Simba}   // To load the SPS include files
+{$I ginclude/master.simba}
+
+const
+  dropSlot = 10;
+  dropKey = 48;
+
+  minimumCopperRocks = 1; //miniumm length of copperATPA //lol, fix this copper/tin shit ray//SHUT THE FOK UP NIGGUH ASS BETCH
+  minimumCopperPoints = 2; //minimum length of the copperTPAs within copperATPA
+  maxCopperPoints = 75;       //max length that the ATPA can have before ignoring
+
+  minimumIronRocks = 1;
+  minimumIronPoints = 2;
+  maxIronPoints = 40;       //max length that the ATPA can have before ignoring
+
+
+var
+  x, y, i: integer;
+  failTimer: TTimeMarker;
+
+
+procedure declarePlayers();
+begin
+  setLength(players, 1);
+  with players[0] do
+  begin
+    loginName := 'sm4rtg0y393@outlook.com';
+    password := 'asdj2kljxasdad';
+    isActive := true;
+    isMember := true;
+    world := 8;
+  end
+  currentPlayer := 0;
+end;
+
+procedure loginProcedure();
+begin
+  if not isLoggedIn() then
+  begin             // If player isn't logged in then
+    players[currentPlayer].login();    // Log them in
+    wait(randomRange(1500,3000));
+  end;
+  if ((minimap.getAngleDegrees > 5) and (minimap.getAngleDegrees < 355)) then
+  begin
+    writeLn('Setting Compass');
+    minimap.clickCompass;
+    mainScreen.setAngle(MS_ANGLE_HIGH);
+    wait(randomrange(650, 1250));
+  end;
+end;
+
+procedure setupVariables();
+begin
+  AB_COPPER_ORE_DTM := DTMFromString('mggAAAHicY2NgYOhkZGDoBeI2IJ4CxFVA3ALE24F4NRAfA+IDQLwbyt+eZcXAyskN1MkIxj622gwu5moM/EAeNsyIA0MAANWCCro=');
+  searchBox1.setBounds(32, 527, 113, 545);
+end;
+
+procedure firstLogin();
+begin
+  if not findDTM(AB_COPPER_ORE_DTM, x, y, actionbar.getSlotBox(dropSlot)) then
+  begin
+    findDTM(AB_COPPER_ORE_DTM, x, y, tabBackpack.getBounds);
+    writeln(tabBackpack.pointToSlot([x, y]));
+    dragToAB(tabBackpack.pointToSlot([x, y]), 10);
+  end;
+end;
+
+procedure terminator();
+begin
+  FreeDTM(AB_COPPER_ORE_DTM);
+end;
+
+procedure setup();
+begin
+  clearDebug();               // Clear the debug box
+  smartEnableDrawing := true; // So we can draw on SMART
+  declarePlayers();             // Set up your username/pass
+  smartShowConsole := true;        //
+  disableIPScreenshots := true;
+  disableSRLLog := true;
+  AddOnTerminate('terminator');
+  setupVariables();
+  toVarrockMines.setup('toVarrockMines', RUNESCAPE_SURFACE);
+
+  setupSRL();                   // Load the SRL include files
+  loginProcedure();
+  firstLogin();
+end;
+
+function mineCopper(): boolean;
+begin
+  if length(copperATPA) < 1 then
+    exit(false);
+  writeln('length of copperATPA is: ', length(copperATPA));
+
+  for i := 0 to high(copperATPA) do
+  begin
+    if ((length(copperATPA) < 1) or (length(copperATPA) < i)) then
+      exit(false);
+
+
+    moveMouse(middleTPA(copperATPA[i]));
+    if isMouseOverText(['oppe', 'r ore'], 1850, true) then
+    begin
+      fastClick(mouse_left);
+      exit(true);
+    end;
+    copperATPA.deleteIndex(i);
+    i := (i - 1);
+  end;
+end;
+
+procedure waitWhileMining();
+var
+  waitXP1, waitXP2: integer;
+begin
+  mouseOffClient(OFF_CLIENT_RIGHT);
+  failTimer.start;
+  repeat
+    wait(gaussrangeint(200, 400));
+  until ((mainScreen.isPlayerAnimating(100)) or (failTimer.getTime > 10000));
+  if failTimer.getTime > 10000 then
+    scriptTerminator('failed to start mining within 10 seconds? terminating script');
+
+  failTimer.start;
+  repeat
+    waitXP1 := getXP;
+    wait(300);
+    waitXP2 := getXP;
+    writeln('waiting till exp changes');
+  until ((waitXP1 <> waitXP2) or (failTimer.getTime > 45000));
+  if failTimer.getTime > 45000 then
+    scriptTerminator('failed to finish mining within 30 seconds? terminating script');
+
+  smartImage.clear;
+  wait(gaussrangeint(500, 800));
+end;
+
+procedure miningMainLoop();
+begin
+  if weShouldDropCopper(randomrange(20, 26), 28) then
+    dropCopper(dropKey, 20000);
+
+  if not copperPresent(minimumCopperRocks, minimumCopperPoints, maxCopperPoints) then
+  begin
+    teleVarrock(1000, 2000);
+    walkToMines();
+  end else
+  begin
+    mineCopper();
+    waitWhileMining();
+  end;
+end;
+
+function showTrees(): boolean;
+begin
+end;
+
+function findTree(stumpCheck: boolean = true): boolean;
+const
+  stumpColor = 7380685;
+  stumpTol = 7;
+  stumpHue = 0.18;
+  stumpSat = 1.2;
+var
+  x,y,i : Integer;
+  tTPA, stumpTPA: TPointArray;
+  tATPA : T2DPointArray;
+begin
+  //Will have a loginFailsafe procedure here in the future
+  if not isLoggedIn then
+    exit(false);
+
+  //Left these colors alone, they seem pretty good.
+  findColorsSpiralTolerance(x, y, tTPA, 3036270, mainScreen.getBounds(), 8, colorSetting(2, 0.36, 0.46));
+  if (Length(tTPA) < 1) then
+  begin
+    WriteLn('Failed to find tree colors');
+    exit(false);
+  end;
+
+  //Filters
+  tATPA := tTPA.toATPA(50,50);
+  FilterTPAsBetween(tATPA,1,100);
+  //sortATPASize(tATPA, true);
+  SortATPAFromMidPoint(tATPA, mainscreen.getCenterPoint); //helps with debugging
+
+  //Draw
+  SmartImage.debugATPA(tATPA);
+
+  //For all ATPA's do...
+  for i := 0 to high(tATPA) do
+  begin
+    //smartImage.debugTPA(tATPA[i]); //shows lengths
+
+    if stumpCheck then //if stumpCheck is set to true then for some TPAs we will skip them if they have sufficient stumpTPA within them
+      if (length(tATPA[i]) < 250) then
+      begin
+        findColorsTolerance(stumpTPA, stumpColor, tATPA[i].getBounds, stumpTol, colorSetting(2, stumpHue, stumpSat));
+        //smartImage.debugTPA(stumpTPA); //shows lengths
+        if length(stumpTPA) > 50 then //I chose length of 50 pretty much out of thin air. stumps usually had lengths of about 150-200
+          Continue;
+      end;
+
+    mouse(middleTPA(tATPA[i]), MOUSE_MOVE); //we should probably move it around a bit in each TPA, instead of looking for mouseovertext in just 1 TPoint
+    if isMouseOverText(['Tree']) then  //It could say 'Chop down Oak' instead of 'Chop down Tree'.
+    begin
+      writeln('FOUND TREE!');
+      fastClick(MOUSE_LEFT);
+      smartImage.clear();
+      exit(true);
+    end;
+
+    writeln('this one didn''t work, let''s move to the next');
+    wait(2000); //for debugging purposes
+  end;
+
+end;
+
+// main loop
+begin
+  setup();
+
+  //repeat
+    //miningMainLoop;
+  //until false;
+
+  writeln(findTree);
+
+  //ironPresent(minimumIronRocks, minimumIronPoints, maxIronPoints);
+end.
